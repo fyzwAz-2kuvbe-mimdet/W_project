@@ -221,26 +221,25 @@ def render_progress_bar():
 
 
 def render_chat_history():
-    """NPC 스타일 대화창 렌더링 (이스 이터널 대화창 스타일)"""
     for msg in st.session_state.chat_history:
         if msg["type"] == "npc":
             npc = NPC_CHARACTERS.get(msg["npc"], NPC_CHARACTERS["루나"])
             st.markdown(f"""
-            <div style="background:#1e1e2e;border:1px solid {npc['color']}55;border-radius:12px;padding:14px 16px;margin:8px 0;">
-                <div style="color:{npc['color']};font-size:13px;font-weight:700;margin-bottom:6px;">
-                    {npc['emoji']} {msg['npc']} <span style="font-size:11px;color:#6c7086;">({npc['role']})</span>
+            <div style="background:#ffffff;border:1.5px solid #90caf9;border-radius:12px;padding:14px 16px;margin:8px 0;box-shadow:0 2px 6px #e3f2fd;">
+                <div style="color:#2196f3;font-size:13px;font-weight:700;margin-bottom:6px;">
+                    {npc['emoji']} {msg['npc']} <span style="font-size:11px;color:#90caf9;">({npc['role']})</span>
                 </div>
-                <div style="color:#cdd6f4;font-size:15px;line-height:1.6;">{msg['message']}</div>
-                {f'<div style="color:#89b4fa;font-size:13px;margin-top:8px;font-style:italic;">❓ {msg["question"]}</div>' if msg.get('question') else ''}
+                <div style="color:#1a237e;font-size:15px;line-height:1.6;">{msg['message']}</div>
+                {f'<div style="color:#2196f3;font-size:13px;margin-top:8px;font-style:italic;">❓ {msg["question"]}</div>' if msg.get('question') else ''}
             </div>
             """, unsafe_allow_html=True)
 
         elif msg["type"] == "player":
             st.markdown(f"""
             <div style="display:flex;justify-content:flex-end;margin:8px 0;">
-                <div style="background:#313244;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:80%;">
-                    <div style="color:#a6e3a1;font-size:13px;font-weight:600;margin-bottom:4px;">🧒 나</div>
-                    <div style="color:#cdd6f4;font-size:14px;">{msg['message']}</div>
+                <div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:80%;border:1px solid #90caf9;">
+                    <div style="color:#2196f3;font-size:13px;font-weight:600;margin-bottom:4px;">🧒 나</div>
+                    <div style="color:#1a237e;font-size:14px;">{msg['message']}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -250,7 +249,7 @@ def render_keyword_buttons():
     if not st.session_state.suggested_keywords:
         return
 
-    st.markdown('<div style="color:#89b4fa;font-size:13px;margin:8px 0 6px;">💡 아래 문장을 눌러 입력창에 추가해요!</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#2196f3;font-size:13px;margin:8px 0 6px;">💡 아래 문장을 눌러 입력창에 추가해요!</div>', unsafe_allow_html=True)
 
     keywords = st.session_state.suggested_keywords[:4]  # 최대 4개
 
@@ -280,6 +279,8 @@ def render_stats_cards():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
+                   
+
         <div style="background:#1e1e2e;border-radius:10px;padding:10px;text-align:center;border:1px solid #313244;">
             <div style="color:#6c7086;font-size:11px;">현재 단계</div>
             <div style="color:#cba6f7;font-size:18px;font-weight:700;">{STAGE_ICONS[st.session_state.stage_idx]}</div>
@@ -437,36 +438,39 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # 전역 스타일 (카타마린 다크 테마)
-    st.markdown("""
-    <style>
-    .stApp { background-color: #181825; }
-    .stButton > button {
-        background-color: #313244;
-        color: #cdd6f4;
-        border: 1px solid #45475a;
-        border-radius: 10px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    .stButton > button:hover {
-        background-color: #45475a;
-        border-color: #89b4fa;
-        color: #89b4fa;
-    }
-    .stTextArea > div > div > textarea {
-        background-color: #1e1e2e;
-        color: #cdd6f4;
-        border: 1px solid #45475a;
-        border-radius: 10px;
-    }
-    .stTextArea > div > div > textarea:focus {
-        border-color: #89b4fa;
-    }
-    div[data-testid="stMarkdownContainer"] { color: #cdd6f4; }
-    .element-container { margin-bottom: 4px; }
-    </style>
-    """, unsafe_allow_html=True)
+def render_stats_cards():
+    stage = STAGES[st.session_state.stage_idx]
+    char_limit = CHAR_LIMITS.get(stage, 100)
+    current_len = len(st.session_state.input_text)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
+            <div style="color:#90caf9;font-size:11px;">현재 단계</div>
+            <div style="color:#2196f3;font-size:18px;font-weight:700;">{STAGE_ICONS[st.session_state.stage_idx]}</div>
+            <div style="color:#1565c0;font-size:12px;">{STAGE_LABELS[st.session_state.stage_idx]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        color = "#ef5350" if current_len > char_limit else "#2196f3"
+        st.markdown(f"""
+        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
+            <div style="color:#90caf9;font-size:11px;">글자 수</div>
+            <div style="color:{color};font-size:18px;font-weight:700;">{current_len}</div>
+            <div style="color:#b0bec5;font-size:12px;">/ {char_limit}자 권장</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        streak = len([m for m in st.session_state.chat_history if m["type"] == "player"])
+        st.markdown(f"""
+        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
+            <div style="color:#90caf9;font-size:11px;">응답 횟수</div>
+            <div style="color:#ff7043;font-size:18px;font-weight:700;">{streak}🔥</div>
+            <div style="color:#b0bec5;font-size:12px;">연속 작성</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
     # 세션 초기화
     init_session()
@@ -548,7 +552,6 @@ def main():
                 add_player_message(cleaned)
                 # Gemini 처리 및 다음 단계 진행
                 process_stage(cleaned)
-                st.session_state.suggested_keywords = []
                 st.rerun()
 
     with col_clear:
