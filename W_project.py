@@ -178,7 +178,8 @@ def build_writing_prompt(context):
 def call_gemini(prompt):
     import json, re
     try:
-        response = get_gemini_client().models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        client = get_gemini_client()
+        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
         # 토큰 사용량 누적 저장
         usage = getattr(response, "usage_metadata", None)
         if usage:
@@ -189,10 +190,25 @@ def call_gemini(prompt):
         if match:
             return json.loads(match.group())
         else:
-            # JSON 파싱 실패 시 원문 디버그 표시
-            st.warning(f"AI 응답 파싱 실패: {text[:200]}")
+            # JSON 파싱 실패 — AI가 JSON 대신 다른 형식으로 답한 경우
+            # 재시도: JSON만 달라고 다시 요청
+            retry_prompt = prompt + "\n\n반드시 JSON만 출력하고 다른 텍스트는 절대 포함하지 마."
+            response2 = client.models.generate_content(model=GEMINI_MODEL, contents=retry_prompt)
+            text2 = response2.text.strip()
+            match2 = re.search(r'\{.*\}', text2, re.DOTALL)
+            if match2:
+                return json.loads(match2.group())
+            st.warning(f"⚠️ AI 응답 파싱 실패 (2회): {text2[:300]}")
     except Exception as e:
-        st.error(f"AI 응답 오류: {e}")
+        err_str = str(e)
+        if "API_KEY" in err_str or "api_key" in err_str or "INVALID" in err_str:
+            st.error("🔑 Gemini API 키가 올바르지 않아요. Streamlit Cloud Secrets의 GEMINI_API_KEY를 확인해주세요.")
+        elif "quota" in err_str.lower() or "429" in err_str:
+            st.error("⏱️ API 사용량 한도 초과예요. 잠시 후 다시 시도해주세요.")
+        elif "network" in err_str.lower() or "connect" in err_str.lower():
+            st.error("🌐 네트워크 연결 문제예요. 인터넷 연결을 확인해주세요.")
+        else:
+            st.error(f"❌ AI 오류: {err_str}")
     return {}
 
 
@@ -498,7 +514,11 @@ def process_stage(user_input):
     with st.spinner("✨ AI가 생각하는 중..."):
         result = call_gemini(build_prompt(stage, user_input, context))
     if not result:
-        add_npc_message("루나", "앗, 연결이 안 됐어요! 다시 말해줄래요? 🙏")
+        # 실패 시: 방금 추가한 player 메시지 제거 (중복 방지)
+        if st.session_state.chat_history and st.session_state.chat_history[-1]["type"] == "player":
+            st.session_state.chat_history.pop()
+        # 입력창 복원
+        st.session_state.input_text = user_input
         return
 
     if stage == "기분탐색":
@@ -744,6 +764,25 @@ def main():
 
         st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
 
+        # ── API 연결 테스트 (오류 발생 시 진단용) ─────────────
+        with st.expander("🔧 연결 진단", expanded=False):
+            if st.button("Gemini API 연결 테스트", use_container_width=True, key="api_test"):
+                try:
+                    import json as _json
+                    test_client = get_gemini_client()
+                    test_resp = test_client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents="숫자 1을 JSON으로 답해: {"ok":true}"
+                    )
+                    st.success(f"✅ 연결 성공! 응답: {test_resp.text[:100]}")
+                except Exception as e:
+                    st.error(f"❌ 연결 실패: {e}")
+            st.markdown(
+                f'<div style="color:{THEME["text_muted"]};font-size:11px;">'
+                f'모델: {GEMINI_MODEL}</div>',
+                unsafe_allow_html=True
+            )
+
         stage      = STAGES[st.session_state.stage_idx]
         char_limit = CHAR_LIMITS.get(stage, 100)
         placeholders = {
@@ -774,6 +813,8 @@ def main():
                 else:
                     add_player_message(cleaned)
                     process_stage(cleaned)
+                    # process_stage 내부에서 실패 시 chat_history를 롤백했으므로
+                    # 성공/실패 모두 rerun해서 화면 갱신
                     st.rerun()
         with col_clear:
             if st.button("🗑️", use_container_width=True, help="입력 내용 지우기"):
