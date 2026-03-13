@@ -1,7 +1,7 @@
 # ============================================================
 # W_project.py
 # 초등학생 글짓기 서포트 프로그램
-# 이스 이터널 스타일 NPC 대화 + 다이어트 앱 UI
+# 이스 이터널 스타일 NPC 대화 + 화이트/스카이블루 UI
 # ============================================================
 
 import streamlit as st
@@ -13,19 +13,34 @@ import datetime
 # ── 상수 ──────────────────────────────────────────────────────
 GEMINI_MODEL = "gemini-2.5-flash"
 
-# 글짓기 단계 정의 (이스 이터널의 퀘스트 진행처럼)
+# ── UI 테마 설정 ───────────────────────────────────────────────
+# 여기서 색상을 바꾸면 전체 UI에 반영됩니다
+THEME = {
+    "bg":         "#f0f8ff",   # 앱 전체 배경 (하늘빛 흰색)
+    "card":       "#ffffff",   # 카드/대화창 배경
+    "card_bg":    "#e3f2fd",   # 연한 카드 배경 (스탯 카드 등)
+    "border":     "#90caf9",   # 테두리 색
+    "primary":    "#2196f3",   # 메인 강조색 (버튼, 제목)
+    "primary_dk": "#1565c0",   # 진한 강조색
+    "text":       "#1a237e",   # 본문 텍스트
+    "text_muted": "#90caf9",   # 흐린 텍스트
+    "danger":     "#ef5350",   # 글자수 초과 경고색
+    "fire":       "#ff7043",   # 연속작성 불꽃색
+}
+
+# 글짓기 단계 정의
 STAGES = ["기분탐색", "주제헌팅", "서론", "본론", "결론", "완성"]
 STAGE_ICONS = ["💬", "🎯", "📖", "✍️", "🏁", "🌟"]
 STAGE_LABELS = ["기분 탐색", "주제 헌팅", "서론 쓰기", "본론 쓰기", "결론 쓰기", "완성!"]
 
-# NPC 캐릭터 설정 (이스 이터널의 NPC들처럼)
+# NPC 캐릭터 설정
 NPC_CHARACTERS = {
-    "루나": {"emoji": "🧝‍♀️", "color": "#a78bfa", "role": "안내자"},
-    "도토리": {"emoji": "🐿️", "color": "#fb923c", "role": "응원단"},
-    "글벌레": {"emoji": "📚", "color": "#34d399", "role": "박사"},
+    "루나":   {"emoji": "🧝‍♀️", "color": "#2196f3", "role": "안내자"},
+    "도토리": {"emoji": "🐿️",  "color": "#ff7043", "role": "응원단"},
+    "글벌레": {"emoji": "📚",   "color": "#26a69a", "role": "박사"},
 }
 
-# 각 단계별 글자수 제한 (토큰 최소화)
+# 단계별 글자수 제한 (토큰 최소화)
 CHAR_LIMITS = {
     "기분탐색": 50,
     "주제헌팅": 30,
@@ -38,26 +53,16 @@ CHAR_LIMITS = {
 # ── Firebase 초기화 (캐시로 1회만 실행) ──────────────────────
 @st.cache_resource
 def init_firebase():
-    """
-    Firebase Admin SDK를 초기화합니다.
-    @st.cache_resource 덕분에 앱이 새로고침 되어도 1번만 실행됩니다.
-    """
     if firebase_admin._apps:
         return firebase_admin.get_app()
-
-    # st.secrets에서 Firebase 서비스 계정 정보를 딕셔너리로 로드
     firebase_config = dict(st.secrets["firebase"])
-    # private_key의 줄바꿈 문자 복원 (Streamlit secrets 저장 시 깨질 수 있음)
     firebase_config["private_key"] = firebase_config["private_key"].replace("\\n", "\n")
-
     cred = credentials.Certificate(firebase_config)
-    app = firebase_admin.initialize_app(cred)
-    return app
+    return firebase_admin.initialize_app(cred)
 
 
 @st.cache_resource
 def get_db():
-    """Firestore 클라이언트를 반환합니다."""
     init_firebase()
     return firestore.client()
 
@@ -65,13 +70,11 @@ def get_db():
 # ── Gemini 클라이언트 초기화 ──────────────────────────────────
 @st.cache_resource
 def get_gemini_client():
-    """Gemini API 클라이언트를 반환합니다."""
     return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 
-# ── Firestore 저장 함수 ───────────────────────────────────────
+# ── Firestore 저장 ────────────────────────────────────────────
 def save_story_to_firestore(session_id: str, stage: str, user_input: str, ai_response: str):
-    """글짓기 진행 내용을 Firestore에 저장합니다."""
     try:
         db = get_db()
         doc_ref = db.collection("stories").document(session_id)
@@ -87,19 +90,13 @@ def save_story_to_firestore(session_id: str, stage: str, user_input: str, ai_res
             }])
         }, merge=True)
     except Exception as e:
-        # Firestore 저장 실패해도 앱은 계속 동작
         st.warning(f"저장 중 오류가 발생했어요: {e}")
 
 
 # ── Gemini 프롬프트 빌더 ──────────────────────────────────────
 def build_prompt(stage: str, user_input: str, context: dict) -> str:
-    """
-    각 단계별로 최적화된 프롬프트를 생성합니다.
-    토큰 절약을 위해 각 단계별로 지시사항을 최소화합니다.
-    """
     base = "너는 초등학생 글짓기를 돕는 친절한 AI야. 반드시 JSON으로만 답해. 설명 금지.\n"
 
-    # 수정
     if stage == "기분탐색":
         return base + f"""
 입력: "{user_input}"
@@ -111,15 +108,14 @@ JSON 형식으로만 답해. keywords는 반드시 4개, 각 항목은 15자 이
         return base + f"""
 기분: "{mood}", 선택: "{user_input}"
 JSON:
-# 수정 주제헌팅
-{{"npc":"글벌레","topic":"글 주제(20자 이내)","message":"칭찬 한 줄(20자 이내)","keywords":["서론 문장1","서론 문장2","서론 문장3","서론 문장4"],"next_question":"서론 질문(30자 이내)"}}"""
+{{"npc":"글벌레","topic":"글 주제(20자 이내)","message":"칭찬 한 줄(20자 이내)","keywords":["서론 시작 문장1","서론 시작 문장2","서론 시작 문장3","서론 시작 문장4"],"next_question":"서론 질문(30자 이내)"}}"""
 
     elif stage == "서론":
         topic = context.get("topic", "")
         return base + f"""
 주제: "{topic}", 서론: "{user_input}"
 JSON:
-{{"npc":"도토리","feedback":"서론 칭찬(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"본론 질문(30자 이내)"}}"""
+{{"npc":"도토리","feedback":"서론 칭찬(20자 이내)","keywords":["본론 힌트 문장1","본론 힌트 문장2","본론 힌트 문장3","본론 힌트 문장4"],"next_question":"본론 질문(30자 이내)"}}"""
 
     elif stage == "본론":
         topic = context.get("topic", "")
@@ -127,7 +123,7 @@ JSON:
         return base + f"""
 주제: "{topic}", 서론요약: "{intro[:30]}", 본론: "{user_input}"
 JSON:
-{{"npc":"글벌레","feedback":"본론 칭찬(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"결론 질문(30자 이내)"}}"""
+{{"npc":"글벌레","feedback":"본론 칭찬(20자 이내)","keywords":["결론 힌트 문장1","결론 힌트 문장2","결론 힌트 문장3","결론 힌트 문장4"],"next_question":"결론 질문(30자 이내)"}}"""
 
     elif stage == "결론":
         topic = context.get("topic", "")
@@ -140,7 +136,6 @@ JSON:
 
 
 def call_gemini(prompt: str) -> dict:
-    """Gemini API를 호출하고 JSON 응답을 파싱합니다."""
     import json, re
     client = get_gemini_client()
     try:
@@ -149,7 +144,6 @@ def call_gemini(prompt: str) -> dict:
             contents=prompt,
         )
         text = response.text.strip()
-        # JSON 블록 추출 (마크다운 코드블록 제거)
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
             return json.loads(match.group())
@@ -160,15 +154,14 @@ def call_gemini(prompt: str) -> dict:
 
 # ── Session State 초기화 ──────────────────────────────────────
 def init_session():
-    """앱 시작 시 세션 상태를 초기화합니다."""
     defaults = {
-        "stage_idx": 0,             # 현재 단계 인덱스
-        "chat_history": [],          # NPC 대화 기록
-        "context": {},               # 글짓기 컨텍스트 (주제, 기분 등)
-        "suggested_keywords": [],    # NPC가 추천한 키워드
-        "input_text": "",            # 현재 입력창 텍스트
+        "stage_idx": 0,
+        "chat_history": [],
+        "context": {},
+        "suggested_keywords": [],
+        "input_text": "",
         "session_id": datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
-        "npc_intro_done": False,     # 첫 NPC 인사 완료 여부
+        "npc_intro_done": False,
         "loading": False,
     }
     for k, v in defaults.items():
@@ -178,7 +171,6 @@ def init_session():
 
 # ── UI 헬퍼 함수들 ────────────────────────────────────────────
 def add_npc_message(npc_name: str, message: str, keywords: list = None, question: str = None):
-    """NPC 메시지를 대화 기록에 추가합니다."""
     st.session_state.chat_history.append({
         "type": "npc",
         "npc": npc_name,
@@ -191,7 +183,6 @@ def add_npc_message(npc_name: str, message: str, keywords: list = None, question
 
 
 def add_player_message(text: str):
-    """플레이어 메시지를 대화 기록에 추가합니다."""
     st.session_state.chat_history.append({
         "type": "player",
         "message": text,
@@ -199,22 +190,21 @@ def add_player_message(text: str):
 
 
 def render_progress_bar():
-    """상단 진행률 바 (다이어트 앱 스타일)"""
     stage_idx = st.session_state.stage_idx
-    total = len(STAGES) - 1  # "완성" 제외
+    total = len(STAGES) - 1
     progress = min(stage_idx / total, 1.0)
 
     st.markdown(f"""
-    <div style="background:#1e1e2e;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
+    <div style="background:#ffffff;padding:12px 16px;border-radius:12px;margin-bottom:16px;border:1px solid {THEME['border']};box-shadow:0 2px 8px #e3f2fd;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="color:#cdd6f4;font-size:13px;font-weight:600;">✍️ 글짓기 여정</span>
-            <span style="color:#a6e3a1;font-size:13px;font-weight:700;">{int(progress*100)}%</span>
+            <span style="color:{THEME['primary_dk']};font-size:13px;font-weight:600;">✍️ 글짓기 여정</span>
+            <span style="color:{THEME['primary']};font-size:13px;font-weight:700;">{int(progress*100)}%</span>
         </div>
-        <div style="background:#313244;border-radius:8px;height:10px;overflow:hidden;">
-            <div style="background:linear-gradient(90deg,#89b4fa,#cba6f7);width:{progress*100}%;height:100%;border-radius:8px;transition:width 0.5s;"></div>
+        <div style="background:#e3f2fd;border-radius:8px;height:10px;overflow:hidden;">
+            <div style="background:linear-gradient(90deg,#64b5f6,#2196f3);width:{progress*100}%;height:100%;border-radius:8px;transition:width 0.5s;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:8px;">
-            {"".join([f'<span style="font-size:11px;color:{"#a6e3a1" if i <= stage_idx else "#585b70"};">{STAGE_ICONS[i]}{STAGE_LABELS[i]}</span>' for i in range(len(STAGES))])}
+            {"".join([f'<span style="font-size:11px;color:{"#2196f3" if i <= stage_idx else "#b0bec5"};">{STAGE_ICONS[i]}{STAGE_LABELS[i]}</span>' for i in range(len(STAGES))])}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -225,35 +215,35 @@ def render_chat_history():
         if msg["type"] == "npc":
             npc = NPC_CHARACTERS.get(msg["npc"], NPC_CHARACTERS["루나"])
             st.markdown(f"""
-            <div style="background:#ffffff;border:1.5px solid #90caf9;border-radius:12px;padding:14px 16px;margin:8px 0;box-shadow:0 2px 6px #e3f2fd;">
-                <div style="color:#2196f3;font-size:13px;font-weight:700;margin-bottom:6px;">
-                    {npc['emoji']} {msg['npc']} <span style="font-size:11px;color:#90caf9;">({npc['role']})</span>
+            <div style="background:#ffffff;border:1.5px solid {THEME['border']};border-radius:12px;padding:14px 16px;margin:8px 0;box-shadow:0 2px 6px #e3f2fd;">
+                <div style="color:{THEME['primary']};font-size:13px;font-weight:700;margin-bottom:6px;">
+                    {npc['emoji']} {msg['npc']} <span style="font-size:11px;color:{THEME['text_muted']};">({npc['role']})</span>
                 </div>
-                <div style="color:#1a237e;font-size:15px;line-height:1.6;">{msg['message']}</div>
-                {f'<div style="color:#2196f3;font-size:13px;margin-top:8px;font-style:italic;">❓ {msg["question"]}</div>' if msg.get('question') else ''}
+                <div style="color:{THEME['text']};font-size:15px;line-height:1.6;">{msg['message']}</div>
+                {f'<div style="color:{THEME["primary"]};font-size:13px;margin-top:8px;font-style:italic;">❓ {msg["question"]}</div>' if msg.get('question') else ''}
             </div>
             """, unsafe_allow_html=True)
 
         elif msg["type"] == "player":
             st.markdown(f"""
             <div style="display:flex;justify-content:flex-end;margin:8px 0;">
-                <div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:80%;border:1px solid #90caf9;">
-                    <div style="color:#2196f3;font-size:13px;font-weight:600;margin-bottom:4px;">🧒 나</div>
-                    <div style="color:#1a237e;font-size:14px;">{msg['message']}</div>
+                <div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:80%;border:1px solid {THEME['border']};">
+                    <div style="color:{THEME['primary']};font-size:13px;font-weight:600;margin-bottom:4px;">🧒 나</div>
+                    <div style="color:{THEME['text']};font-size:14px;">{msg['message']}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-# 수정 — 항상 2x2 그리드, 긴 문장도 잘 보임
+
 def render_keyword_buttons():
+    """NPC 추천 키워드를 2x2 버튼 그리드로 렌더링"""
     if not st.session_state.suggested_keywords:
         return
 
-    st.markdown('<div style="color:#2196f3;font-size:13px;margin:8px 0 6px;">💡 아래 문장을 눌러 입력창에 추가해요!</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:{THEME["primary"]};font-size:13px;margin:8px 0 6px;">💡 아래 문장을 눌러 입력창에 추가해요!</div>', unsafe_allow_html=True)
 
-    keywords = st.session_state.suggested_keywords[:4]  # 최대 4개
+    keywords = st.session_state.suggested_keywords[:4]
 
-    # 2x2 그리드로 배치
     row1 = st.columns(2)
     row2 = st.columns(2)
     grid = [row1[0], row1[1], row2[0], row2[1]]
@@ -270,8 +260,9 @@ def render_keyword_buttons():
                     st.session_state.input_text = kw
                 st.rerun()
 
+
 def render_stats_cards():
-    """다이어트 앱 스타일 스탯 카드 (오른쪽 사이드바)"""
+    """다이어트 앱 스타일 스탯 카드"""
     stage = STAGES[st.session_state.stage_idx]
     char_limit = CHAR_LIMITS.get(stage, 100)
     current_len = len(st.session_state.input_text)
@@ -279,39 +270,34 @@ def render_stats_cards():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
-                   
-
-        <div style="background:#1e1e2e;border-radius:10px;padding:10px;text-align:center;border:1px solid #313244;">
-            <div style="color:#6c7086;font-size:11px;">현재 단계</div>
-            <div style="color:#cba6f7;font-size:18px;font-weight:700;">{STAGE_ICONS[st.session_state.stage_idx]}</div>
-            <div style="color:#cdd6f4;font-size:12px;">{STAGE_LABELS[st.session_state.stage_idx]}</div>
+        <div style="background:{THEME['card_bg']};border-radius:10px;padding:10px;text-align:center;border:1px solid {THEME['border']};">
+            <div style="color:{THEME['text_muted']};font-size:11px;">현재 단계</div>
+            <div style="color:{THEME['primary']};font-size:18px;font-weight:700;">{STAGE_ICONS[st.session_state.stage_idx]}</div>
+            <div style="color:{THEME['primary_dk']};font-size:12px;">{STAGE_LABELS[st.session_state.stage_idx]}</div>
         </div>
         """, unsafe_allow_html=True)
     with col2:
-        color = "#f38ba8" if current_len > char_limit else "#a6e3a1"
+        color = THEME['danger'] if current_len > char_limit else THEME['primary']
         st.markdown(f"""
-        <div style="background:#1e1e2e;border-radius:10px;padding:10px;text-align:center;border:1px solid #313244;">
-            <div style="color:#6c7086;font-size:11px;">글자 수</div>
+        <div style="background:{THEME['card_bg']};border-radius:10px;padding:10px;text-align:center;border:1px solid {THEME['border']};">
+            <div style="color:{THEME['text_muted']};font-size:11px;">글자 수</div>
             <div style="color:{color};font-size:18px;font-weight:700;">{current_len}</div>
-            <div style="color:#585b70;font-size:12px;">/ {char_limit}자 권장</div>
+            <div style="color:#b0bec5;font-size:12px;">/ {char_limit}자 권장</div>
         </div>
         """, unsafe_allow_html=True)
     with col3:
         streak = len([m for m in st.session_state.chat_history if m["type"] == "player"])
         st.markdown(f"""
-        <div style="background:#1e1e2e;border-radius:10px;padding:10px;text-align:center;border:1px solid #313244;">
-            <div style="color:#6c7086;font-size:11px;">응답 횟수</div>
-            <div style="color:#fab387;font-size:18px;font-weight:700;">{streak}🔥</div>
-            <div style="color:#585b70;font-size:12px;">연속 작성</div>
+        <div style="background:{THEME['card_bg']};border-radius:10px;padding:10px;text-align:center;border:1px solid {THEME['border']};">
+            <div style="color:{THEME['text_muted']};font-size:11px;">응답 횟수</div>
+            <div style="color:{THEME['fire']};font-size:18px;font-weight:700;">{streak}🔥</div>
+            <div style="color:#b0bec5;font-size:12px;">연속 작성</div>
         </div>
         """, unsafe_allow_html=True)
 
 
 # ── 단계별 처리 로직 ──────────────────────────────────────────
 def process_stage(user_input: str):
-    """
-    플레이어 입력을 받아 Gemini에 전송하고 다음 단계로 진행합니다.
-    """
     stage = STAGES[st.session_state.stage_idx]
     context = st.session_state.context
 
@@ -323,7 +309,6 @@ def process_stage(user_input: str):
         add_npc_message("루나", "앗, 잠깐 연결이 안 됐어요! 다시 한번 말해줄래요? 🙏")
         return
 
-    # 단계별 처리
     if stage == "기분탐색":
         st.session_state.context["mood"] = user_input
         add_npc_message(
@@ -372,11 +357,9 @@ def process_stage(user_input: str):
             result.get("npc", "루나"),
             f"🎉 완성! {result.get('full_review', '정말 훌륭한 글이에요!')}",
         )
-        st.session_state.stage_idx = 5  # 완성 단계
-        # 완성 배지 저장
+        st.session_state.stage_idx = 5
         st.session_state.context["badge"] = badge
 
-    # Firestore에 진행 내용 저장
     save_story_to_firestore(
         st.session_state.session_id,
         stage,
@@ -384,28 +367,26 @@ def process_stage(user_input: str):
         str(result)
     )
 
-    # 입력창 초기화 및 키워드 유지
+    # 입력창 초기화 (키워드는 add_npc_message에서 이미 저장됨)
     st.session_state.input_text = ""
 
 
-# ── 완성 화면 렌더링 ──────────────────────────────────────────
+# ── 완성 화면 ─────────────────────────────────────────────────
 def render_completion():
-    """글짓기 완성 시 보상 화면 (게임 클리어 화면 스타일)"""
     ctx = st.session_state.context
     badge = ctx.get("badge", "글짓기 영웅")
 
     st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e1e2e,#313244);border-radius:16px;padding:28px;text-align:center;border:2px solid #cba6f7;margin:16px 0;">
+    <div style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-radius:16px;padding:28px;text-align:center;border:2px solid {THEME['primary']};margin:16px 0;">
         <div style="font-size:48px;margin-bottom:12px;">🌟</div>
-        <div style="color:#cba6f7;font-size:22px;font-weight:700;margin-bottom:8px;">글짓기 완성!</div>
-        <div style="background:#45475a;border-radius:20px;display:inline-block;padding:6px 20px;margin:8px 0;">
-            <span style="color:#f9e2af;font-size:14px;font-weight:600;">🏅 {badge}</span>
+        <div style="color:{THEME['primary_dk']};font-size:22px;font-weight:700;margin-bottom:8px;">글짓기 완성!</div>
+        <div style="background:#ffffff;border-radius:20px;display:inline-block;padding:6px 20px;margin:8px 0;border:1px solid {THEME['border']};">
+            <span style="color:{THEME['primary']};font-size:14px;font-weight:600;">🏅 {badge}</span>
         </div>
-        <div style="color:#a6adc8;font-size:13px;margin-top:12px;">오늘의 글짓기 여정을 모두 완료했어요!</div>
+        <div style="color:{THEME['text']};font-size:13px;margin-top:12px;">오늘의 글짓기 여정을 모두 완료했어요!</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 완성된 글 보여주기
     with st.expander("📖 내가 쓴 글 보기", expanded=True):
         topic = ctx.get("topic", "")
         intro = ctx.get("intro", "")
@@ -413,16 +394,15 @@ def render_completion():
         conclusion = ctx.get("conclusion", "")
 
         st.markdown(f"""
-        <div style="background:#1e1e2e;border-radius:12px;padding:20px;line-height:1.8;color:#cdd6f4;font-size:15px;">
-            <div style="color:#89b4fa;font-weight:700;font-size:16px;margin-bottom:12px;">📌 주제: {topic}</div>
-            <div style="margin-bottom:12px;"><span style="color:#a6e3a1;font-weight:600;">[서론]</span><br>{intro}</div>
-            <div style="margin-bottom:12px;"><span style="color:#fab387;font-weight:600;">[본론]</span><br>{body}</div>
-            <div><span style="color:#cba6f7;font-weight:600;">[결론]</span><br>{conclusion}</div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;line-height:1.8;color:{THEME['text']};font-size:15px;border:1px solid {THEME['border']};">
+            <div style="color:{THEME['primary']};font-weight:700;font-size:16px;margin-bottom:12px;">📌 주제: {topic}</div>
+            <div style="margin-bottom:12px;"><span style="color:#26a69a;font-weight:600;">[서론]</span><br>{intro}</div>
+            <div style="margin-bottom:12px;"><span style="color:{THEME['fire']};font-weight:600;">[본론]</span><br>{body}</div>
+            <div><span style="color:{THEME['primary_dk']};font-weight:600;">[결론]</span><br>{conclusion}</div>
         </div>
         """, unsafe_allow_html=True)
 
     if st.button("🔄 새로운 글짓기 시작하기", use_container_width=True):
-        # 세션 초기화 후 재시작
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -430,7 +410,6 @@ def render_completion():
 
 # ── 메인 앱 ───────────────────────────────────────────────────
 def main():
-    # 페이지 설정 (다이어트 앱 느낌의 다크 테마)
     st.set_page_config(
         page_title="글짓기 어드벤처 ✍️",
         page_icon="✍️",
@@ -438,90 +417,84 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-def render_stats_cards():
-    stage = STAGES[st.session_state.stage_idx]
-    char_limit = CHAR_LIMITS.get(stage, 100)
-    current_len = len(st.session_state.input_text)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
-            <div style="color:#90caf9;font-size:11px;">현재 단계</div>
-            <div style="color:#2196f3;font-size:18px;font-weight:700;">{STAGE_ICONS[st.session_state.stage_idx]}</div>
-            <div style="color:#1565c0;font-size:12px;">{STAGE_LABELS[st.session_state.stage_idx]}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        color = "#ef5350" if current_len > char_limit else "#2196f3"
-        st.markdown(f"""
-        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
-            <div style="color:#90caf9;font-size:11px;">글자 수</div>
-            <div style="color:{color};font-size:18px;font-weight:700;">{current_len}</div>
-            <div style="color:#b0bec5;font-size:12px;">/ {char_limit}자 권장</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        streak = len([m for m in st.session_state.chat_history if m["type"] == "player"])
-        st.markdown(f"""
-        <div style="background:#e3f2fd;border-radius:10px;padding:10px;text-align:center;border:1px solid #90caf9;">
-            <div style="color:#90caf9;font-size:11px;">응답 횟수</div>
-            <div style="color:#ff7043;font-size:18px;font-weight:700;">{streak}🔥</div>
-            <div style="color:#b0bec5;font-size:12px;">연속 작성</div>
-        </div>
-        """, unsafe_allow_html=True)
-
+    # 화이트 + 스카이블루 테마 스타일
+    st.markdown(f"""
+    <style>
+    .stApp {{ background-color: {THEME['bg']}; }}
+    .stButton > button {{
+        background-color: {THEME['card']};
+        color: {THEME['primary']};
+        border: 1.5px solid {THEME['border']};
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }}
+    .stButton > button:hover {{
+        background-color: {THEME['card_bg']};
+        border-color: {THEME['primary']};
+        color: {THEME['primary_dk']};
+    }}
+    .stTextArea > div > div > textarea {{
+        background-color: {THEME['card']};
+        color: {THEME['text']};
+        border: 1.5px solid {THEME['border']};
+        border-radius: 10px;
+    }}
+    .stTextArea > div > div > textarea:focus {{
+        border-color: {THEME['primary']};
+    }}
+    div[data-testid="stMarkdownContainer"] {{ color: {THEME['text']}; }}
+    .element-container {{ margin-bottom: 4px; }}
+    </style>
+    """, unsafe_allow_html=True)
 
     # 세션 초기화
     init_session()
 
-    # ── 헤더 ──────────────────────────────────────────────────
-    st.markdown("""
+    # 헤더
+    st.markdown(f"""
     <div style="text-align:center;padding:20px 0 10px;">
         <div style="font-size:32px;">✍️</div>
-        <div style="color:#cba6f7;font-size:20px;font-weight:700;">글짓기 어드벤처</div>
-        <div style="color:#6c7086;font-size:12px;margin-top:4px;">NPC 친구들과 함께 나만의 이야기를 써봐요!</div>
+        <div style="color:{THEME['primary_dk']};font-size:20px;font-weight:700;">글짓기 어드벤처</div>
+        <div style="color:{THEME['text_muted']};font-size:12px;margin-top:4px;">NPC 친구들과 함께 나만의 이야기를 써봐요!</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── 진행 바 ───────────────────────────────────────────────
+    # 진행 바
     render_progress_bar()
 
-    # ── 완성 단계 ─────────────────────────────────────────────
+    # 완성 단계
     if st.session_state.stage_idx >= len(STAGES) - 1:
         render_completion()
         return
 
-    # ── 첫 NPC 인사 (게임 시작 이벤트) ───────────────────────
+    # 첫 NPC 인사
     if not st.session_state.npc_intro_done:
-
-        # 수정
         add_npc_message(
             "루나",
             "안녕! 나는 루나야 🧝‍♀️ 오늘 글짓기 어드벤처를 함께할 거야!",
             ["오늘 정말 신났어요!", "좋은 일이 있었어요", "조금 피곤해요", "그냥 평범한 하루예요"],
             "오늘 기분이 어때? 또는 오늘 있었던 재미있는 일을 말해줘!"
         )
-
         st.session_state.npc_intro_done = True
 
-    # ── 스탯 카드 ─────────────────────────────────────────────
+    # 스탯 카드
     render_stats_cards()
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
-    # ── 대화창 ────────────────────────────────────────────────
+    # 대화창
     with st.container():
         render_chat_history()
 
-    # ── 키워드 버튼 ───────────────────────────────────────────
+    # 키워드 버튼
     render_keyword_buttons()
 
-    # ── 입력창 ────────────────────────────────────────────────
+    # 입력창
     stage = STAGES[st.session_state.stage_idx]
     char_limit = CHAR_LIMITS.get(stage, 100)
 
     placeholders = {
-        "기분탐색": "오늘 기분이나 있었던 일을 써봐요 (키워드를 눌러도 돼요!)",
+        "기분탐색": "오늘 기분이나 있었던 일을 써봐요 (버튼을 눌러도 돼요!)",
         "주제헌팅": "어떤 주제로 글을 쓰고 싶어요?",
         "서론": "글의 시작을 써봐요! 어떻게 이야기를 열까요?",
         "본론": "본론에서 하고 싶은 이야기를 써봐요!",
@@ -530,27 +503,24 @@ def render_stats_cards():
 
     user_input = st.text_area(
         label="📝 내 이야기",
-        value=st.session_state.input_text,   # session_state 값을 직접 표시
+        value=st.session_state.input_text,
         placeholder=placeholders.get(stage, "여기에 써봐요!"),
         max_chars=char_limit,
         height=100,
-        # key 제거! value로만 제어
         label_visibility="collapsed"
     )
     st.session_state.input_text = user_input
 
-    # ── 전송 버튼 ─────────────────────────────────────────────
+    # 전송/삭제 버튼
     col_send, col_clear = st.columns([4, 1])
     with col_send:
         send_label = "🚀 전송하기" if stage != "결론" else "🎉 완성하기"
         if st.button(send_label, use_container_width=True, type="primary"):
             cleaned = user_input.strip()
             if not cleaned:
-                st.warning("먼저 내용을 입력하거나 키워드를 선택해줘요! 💬")
+                st.warning("먼저 내용을 입력하거나 버튼을 선택해줘요! 💬")
             else:
-                # 플레이어 메시지 추가
                 add_player_message(cleaned)
-                # Gemini 처리 및 다음 단계 진행
                 process_stage(cleaned)
                 st.rerun()
 
@@ -559,9 +529,9 @@ def render_stats_cards():
             st.session_state.input_text = ""
             st.rerun()
 
-    # ── 하단 안내 ─────────────────────────────────────────────
+    # 하단 안내
     st.markdown(f"""
-    <div style="text-align:center;color:#45475a;font-size:11px;margin-top:20px;padding-bottom:20px;">
+    <div style="text-align:center;color:{THEME['text_muted']};font-size:11px;margin-top:20px;padding-bottom:20px;">
         현재 단계: {STAGE_LABELS[st.session_state.stage_idx]} · 권장 {char_limit}자 이내
     </div>
     """, unsafe_allow_html=True)
@@ -581,8 +551,8 @@ if __name__ == "__main__":
 # service cloud.firestore {
 #   match /databases/{database}/documents {
 #     match /stories/{sessionId} {
-#       allow write: if request.auth == null; // 비로그인 허용 (학생용)
-#       allow read: if false;                 // 외부 읽기 차단
+#       allow write: if request.auth == null;
+#       allow read: if false;
 #     }
 #   }
 # }
