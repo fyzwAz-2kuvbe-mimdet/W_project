@@ -211,6 +211,7 @@ def init_session():
         "npc_intro_done": False,
         "writing_text": "",
         "writing_done": False,
+        "setup_open": True,   # 설정 패널 열림/닫힘 상태
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -288,21 +289,24 @@ def render_progress_bar():
     )
 
 
-# ── 형식/문체 선택 (채팅창 상단 — expander) ──────────────────
+# ── 형식/문체 선택 패널 (오른쪽 컬럼 상단) ─────────────────
 def render_setup_panel():
     """
-    채팅창 상단에 위치하는 형식/문체 선택 패널.
-    글짓기가 시작되기 전(stage_idx==0, npc_intro_done==False)에만 표시.
-    한번 설정하면 expander가 접혀서 채팅이 메인이 됨.
+    오른쪽 컬럼 '내 차례' 상단에 위치.
+    setup_open=True 이면 펼쳐져 있고, 확정 버튼 누르면 접힘.
+    형식/문체 선택 중에는 rerun해도 열린 상태 유지.
     """
     fmt   = st.session_state.context.get("format", "")
     style = st.session_state.context.get("style", "")
 
-    # 이미 선택됐으면 접힌 상태로 표시
-    already_set = bool(fmt)
-    label = f"🎨 글쓰기 설정 — {fmt}" + (f" · {style}" if style else "") if already_set else "🎨 글쓰기 형식과 문체를 선택해요"
+    # expander 라벨 — 선택 완료 여부에 따라 다르게 표시
+    if fmt:
+        fmt_icon = WRITING_FORMATS[fmt][0]
+        label = f"🎨 설정완료: {fmt_icon} {fmt}" + (f" · {style}" if style else "")
+    else:
+        label = "🎨 글쓰기 형식과 문체를 선택해요"
 
-    with st.expander(label, expanded=not already_set):
+    with st.expander(label, expanded=st.session_state.setup_open):
 
         # ── Step 1: 형식 ─────────────────────────────────────
         st.markdown(
@@ -317,7 +321,8 @@ def render_setup_panel():
                 btn_label = f"{f_icon} {f_name} ✅" if is_sel else f"{f_icon} {f_name}"
                 if st.button(btn_label, key=f"fmt_{f_name}", use_container_width=True):
                     st.session_state.context["format"] = f_name
-                    st.session_state.context["style"]  = ""   # 형식 바뀌면 문체 초기화
+                    st.session_state.context["style"]  = ""
+                    st.session_state.setup_open = True   # 형식 클릭 후에도 열린 상태 유지
                     st.rerun()
                 st.markdown(
                     f'<div style="text-align:center;color:{THEME["text_muted"]};'
@@ -325,7 +330,7 @@ def render_setup_panel():
                     unsafe_allow_html=True
                 )
 
-        # ── Step 2: 문체 (형식 선택 후 표시) ─────────────────
+        # ── Step 2: 문체 ─────────────────────────────────────
         if fmt:
             st.markdown(
                 f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;'
@@ -341,8 +346,8 @@ def render_setup_panel():
                     is_sel = style == s_name
                     btn_label = f"{s_name} ✅" if is_sel else s_name
                     if st.button(btn_label, key=f"sty_{s_name}", use_container_width=True):
-                        # 같은 거 누르면 해제
                         st.session_state.context["style"] = "" if is_sel else s_name
+                        st.session_state.setup_open = True   # 문체 클릭 후에도 열린 상태 유지
                         st.rerun()
                     st.markdown(
                         f'<div style="text-align:center;color:{THEME["text_muted"]};'
@@ -353,10 +358,11 @@ def render_setup_panel():
         # ── 확정 버튼 ─────────────────────────────────────────
         if fmt:
             st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-            fmt_icon  = WRITING_FORMATS[fmt][0]
-            btn_txt   = f"✅ {fmt_icon} {fmt}" + (f" · {style}" if style else "") + " 로 시작!"
+            fmt_icon = WRITING_FORMATS[fmt][0]
+            btn_txt  = f"✅ {fmt_icon} {fmt}" + (f" · {style}" if style else "") + " 로 시작!"
             if st.button(btn_txt, use_container_width=True, type="primary", key="setup_confirm"):
-                st.rerun()   # expander가 접힌 상태로 다시 렌더링
+                st.session_state.setup_open = False  # 확정 버튼 누르면 닫힘
+                st.rerun()
 
 
 # ── 대화창 ────────────────────────────────────────────────────
@@ -685,11 +691,8 @@ def main():
             f'font-weight:600;margin-bottom:6px;">💬 NPC 대화</div>',
             unsafe_allow_html=True
         )
-        # 형식/문체 선택 패널 — 채팅창 상단
-        render_setup_panel()
-
         # 대화창 — 고정 높이 스크롤, 새 메시지가 항상 아래에 표시됨
-        with st.container(height=430):
+        with st.container(height=500):
             render_chat_history()
 
     # ══ 오른쪽 ══════════════════════════════════════════════════
@@ -699,6 +702,8 @@ def main():
             f'font-weight:600;margin-bottom:6px;">🎮 내 차례</div>',
             unsafe_allow_html=True
         )
+        # 형식/문체 선택 패널 — 내 차례 상단
+        render_setup_panel()
         render_stats_cards()
         render_keyword_buttons()
 
