@@ -513,17 +513,16 @@ def main():
         "결론": "글을 어떻게 마무리할까요?",
     }
 
-    user_input = st.text_area(
-        label="📝 내 이야기",
-        value=st.session_state.input_text,
-        placeholder=placeholders.get(stage, "여기에 써봐요!"),
-        max_chars=char_limit,
-        height=100,
-        key="main_input",
-        label_visibility="collapsed"
-    )
-    # 입력창 변경 사항을 세션에 반영
-    st.session_state.input_text = user_input
+user_input = st.text_area(
+    label="📝 내 이야기",
+    value=st.session_state.input_text,   # session_state 값을 직접 표시
+    placeholder=placeholders.get(stage, "여기에 써봐요!"),
+    max_chars=char_limit,
+    height=100,
+    # key 제거! value로만 제어
+    label_visibility="collapsed"
+)
+st.session_state.input_text = user_input
 
     # ── 전송 버튼 ─────────────────────────────────────────────
     col_send, col_clear = st.columns([4, 1])
