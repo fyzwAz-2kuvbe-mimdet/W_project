@@ -768,11 +768,10 @@ def main():
         with st.expander("🔧 연결 진단", expanded=False):
             if st.button("Gemini API 연결 테스트", use_container_width=True, key="api_test"):
                 try:
-                    import json as _json
                     test_client = get_gemini_client()
                     test_resp = test_client.models.generate_content(
                         model=GEMINI_MODEL,
-                        contents="숫자 1을 JSON으로 답해: {"ok":true}"
+                        contents='연결 테스트. 숫자 1만 답해.'
                     )
                     st.success(f"✅ 연결 성공! 응답: {test_resp.text[:100]}")
                 except Exception as e:
