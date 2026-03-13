@@ -179,9 +179,18 @@ def call_gemini(prompt):
     import json, re
     try:
         response = get_gemini_client().models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        match = re.search(r'\{.*\}', response.text.strip(), re.DOTALL)
+        # 토큰 사용량 누적 저장
+        usage = getattr(response, "usage_metadata", None)
+        if usage:
+            st.session_state.token_in  = st.session_state.get("token_in", 0)  + getattr(usage, "prompt_token_count", 0)
+            st.session_state.token_out = st.session_state.get("token_out", 0) + getattr(usage, "candidates_token_count", 0)
+        text = response.text.strip()
+        match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
             return json.loads(match.group())
+        else:
+            # JSON 파싱 실패 시 원문 디버그 표시
+            st.warning(f"AI 응답 파싱 실패: {text[:200]}")
     except Exception as e:
         st.error(f"AI 응답 오류: {e}")
     return {}
@@ -212,6 +221,8 @@ def init_session():
         "writing_text": "",
         "writing_done": False,
         "setup_open": True,   # 설정 패널 열림/닫힘 상태
+        "token_in": 0,        # 누적 입력 토큰
+        "token_out": 0,       # 누적 출력 토큰
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -366,42 +377,52 @@ def render_setup_panel():
 
 
 # ── 대화창 ────────────────────────────────────────────────────
+def render_one_message(msg):
+    """메시지 하나를 렌더링하는 헬퍼"""
+    if msg["type"] == "npc":
+        npc = NPC_CHARACTERS.get(msg["npc"], NPC_CHARACTERS["루나"])
+        q_html = (
+            f'<div style="color:{THEME["primary"]};font-size:12px;'
+            f'margin-top:6px;font-style:italic;">❓ {msg["question"]}</div>'
+            if msg.get("question") else ""
+        )
+        st.markdown(
+            f'<div style="background:#ffffff;border:1.5px solid {THEME["border"]};'
+            f'border-radius:12px;padding:12px 14px;margin:6px 0;'
+            f'box-shadow:0 1px 4px #e3f2fd;">'
+            f'<div style="color:{THEME["primary"]};font-size:12px;'
+            f'font-weight:700;margin-bottom:4px;">'
+            f'{npc["emoji"]} {msg["npc"]} '
+            f'<span style="font-size:10px;color:{THEME["text_muted"]};">({npc["role"]})</span>'
+            f'</div>'
+            f'<div style="color:{THEME["text"]};font-size:14px;line-height:1.6;">'
+            f'{msg["message"]}</div>'
+            f'{q_html}</div>',
+            unsafe_allow_html=True
+        )
+    elif msg["type"] == "player":
+        st.markdown(
+            f'<div style="display:flex;justify-content:flex-end;margin:6px 0;">'
+            f'<div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;'
+            f'padding:8px 12px;max-width:90%;border:1px solid {THEME["border"]};">'
+            f'<div style="color:{THEME["primary"]};font-size:11px;'
+            f'font-weight:600;margin-bottom:2px;">🧒 나</div>'
+            f'<div style="color:{THEME["text"]};font-size:13px;">'
+            f'{msg["message"]}</div></div></div>',
+            unsafe_allow_html=True
+        )
+
+
 def render_chat_history():
-    for msg in st.session_state.chat_history:
-        if msg["type"] == "npc":
-            npc = NPC_CHARACTERS.get(msg["npc"], NPC_CHARACTERS["루나"])
-            q_html = (
-                f'<div style="color:{THEME["primary"]};font-size:12px;'
-                f'margin-top:6px;font-style:italic;">❓ {msg["question"]}</div>'
-                if msg.get("question") else ""
-            )
-            st.markdown(
-                f'<div style="background:#ffffff;border:1.5px solid {THEME["border"]};'
-                f'border-radius:12px;padding:12px 14px;margin:6px 0;'
-                f'box-shadow:0 1px 4px #e3f2fd;">'
-                f'<div style="color:{THEME["primary"]};font-size:12px;'
-                f'font-weight:700;margin-bottom:4px;">'
-                f'{npc["emoji"]} {msg["npc"]} '
-                f'<span style="font-size:10px;color:{THEME["text_muted"]};">({npc["role"]})</span>'
-                f'</div>'
-                f'<div style="color:{THEME["text"]};font-size:14px;line-height:1.6;">'
-                f'{msg["message"]}</div>'
-                f'{q_html}</div>',
-                unsafe_allow_html=True
-            )
-        elif msg["type"] == "player":
-            st.markdown(
-                f'<div style="display:flex;justify-content:flex-end;margin:6px 0;">'
-                f'<div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;'
-                f'padding:8px 12px;max-width:90%;border:1px solid {THEME["border"]};">'
-                f'<div style="color:{THEME["primary"]};font-size:11px;'
-                f'font-weight:600;margin-bottom:2px;">🧒 나</div>'
-                f'<div style="color:{THEME["text"]};font-size:13px;">'
-                f'{msg["message"]}</div></div></div>',
-                unsafe_allow_html=True
-            )
-    # 자동 스크롤 앵커
-    st.empty()
+    """
+    최신 메시지가 항상 보이도록 역순으로 렌더링합니다.
+    st.container(height=)는 위에서부터 채우므로,
+    메시지를 뒤집어서 넣으면 최신 메시지가 맨 위(=화면에서 맨 아래)에 옵니다.
+    CSS flex-direction:column-reverse 와 같은 효과입니다.
+    """
+    history = st.session_state.chat_history
+    for msg in reversed(history):
+        render_one_message(msg)
 
 
 # ── 스탯 카드 ─────────────────────────────────────────────────
@@ -410,6 +431,8 @@ def render_stats_cards():
     char_limit  = CHAR_LIMITS.get(stage, 100)
     current_len = len(st.session_state.input_text)
     streak      = len([m for m in st.session_state.chat_history if m["type"] == "player"])
+    token_in    = st.session_state.get("token_in", 0)
+    token_out   = st.session_state.get("token_out", 0)
     col1, col2  = st.columns(2)
     with col1:
         st.markdown(
@@ -433,6 +456,18 @@ def render_stats_cards():
             f'</div>',
             unsafe_allow_html=True
         )
+    # 토큰 사용량 카드 (2컬럼 전체 너비)
+    total_token = token_in + token_out
+    st.markdown(
+        f'<div style="background:{THEME["card_bg"]};border-radius:10px;padding:8px 12px;'
+        f'border:1px solid {THEME["border"]};margin-bottom:8px;'
+        f'display:flex;justify-content:space-between;align-items:center;">'
+        f'<span style="color:{THEME["text_muted"]};font-size:10px;">🔢 토큰 사용량</span>'
+        f'<span style="color:{THEME["primary"]};font-size:11px;font-weight:600;">'
+        f'입력 {token_in:,} / 출력 {token_out:,} = 총 {total_token:,}</span>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
 
 # ── 키워드 버튼 ───────────────────────────────────────────────
@@ -450,7 +485,7 @@ def render_keyword_buttons():
     grid = [row1[0], row1[1], row2[0], row2[1]]
     for i, kw in enumerate(kws):
         with grid[i]:
-            if st.button(f"✨ {kw}", key=f"kw_{i}_{kw}", use_container_width=True):
+            if st.button(f"✨ {kw}", key=f"kw_{st.session_state.stage_idx}_{i}_{kw}", use_container_width=True):
                 cur = st.session_state.input_text.strip()
                 st.session_state.input_text = (cur + " " + kw) if cur else kw
                 st.rerun()
