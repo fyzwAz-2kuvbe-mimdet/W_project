@@ -321,13 +321,7 @@ def render_chat_history():
     <div style="height:480px;overflow-y:auto;padding:4px 2px;
                 scrollbar-width:thin;scrollbar-color:{THEME['border']} transparent;">
         {chat_html}
-        <div id="chat-bottom"></div>
     </div>
-    <script>
-        // 대화창 자동 스크롤
-        var el = document.getElementById('chat-bottom');
-        if(el) el.scrollIntoView({{behavior:'smooth'}});
-    </script>
     """, unsafe_allow_html=True)
 
 
