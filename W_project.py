@@ -684,7 +684,9 @@ def main():
             💬 NPC 대화
         </div>
         """, unsafe_allow_html=True)
-        render_chat_history()
+        # height= 옵션으로 고정 높이 + 자동 스크롤 (최신 메시지가 항상 아래)
+        with st.container(height=500):
+            render_chat_history()
 
     # ══ 오른쪽: 선택창 + 입력창 ═════════════════════════════════
     with col_right:
