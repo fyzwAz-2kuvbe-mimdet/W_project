@@ -283,10 +283,9 @@ def render_progress_bar():
 def render_chat_history():
     """
     왼쪽 패널에 NPC↔플레이어 대화 기록을 표시합니다.
-    스크롤 가능한 고정 높이 박스 안에 렌더링합니다.
+    각 메시지를 개별 st.markdown()으로 렌더링합니다.
+    (하나의 큰 HTML 블록은 컬럼 안에서 렌더링 오류 발생)
     """
-    # 대화창 컨테이너 (스크롤 가능)
-    chat_html = ""
     for msg in st.session_state.chat_history:
         if msg["type"] == "npc":
             npc = NPC_CHARACTERS.get(msg["npc"], NPC_CHARACTERS["루나"])
@@ -295,7 +294,7 @@ def render_chat_history():
                 f'margin-top:6px;font-style:italic;">❓ {msg["question"]}</div>'
                 if msg.get("question") else ""
             )
-            chat_html += f"""
+            st.markdown(f"""
             <div style="background:#ffffff;border:1.5px solid {THEME['border']};
                         border-radius:12px;padding:12px 14px;margin:6px 0;
                         box-shadow:0 1px 4px #e3f2fd;">
@@ -305,24 +304,20 @@ def render_chat_history():
                 </div>
                 <div style="color:{THEME['text']};font-size:14px;line-height:1.6;">{msg['message']}</div>
                 {question_html}
-            </div>"""
+            </div>
+            """, unsafe_allow_html=True)
 
         elif msg["type"] == "player":
-            chat_html += f"""
+            st.markdown(f"""
             <div style="display:flex;justify-content:flex-end;margin:6px 0;">
                 <div style="background:#e3f2fd;border-radius:12px 12px 2px 12px;
                             padding:8px 12px;max-width:90%;border:1px solid {THEME['border']};">
-                    <div style="color:{THEME['primary']};font-size:11px;font-weight:600;margin-bottom:2px;">🧒 나</div>
+                    <div style="color:{THEME['primary']};font-size:11px;
+                                font-weight:600;margin-bottom:2px;">🧒 나</div>
                     <div style="color:{THEME['text']};font-size:13px;">{msg['message']}</div>
                 </div>
-            </div>"""
-
-    st.markdown(f"""
-    <div style="height:480px;overflow-y:auto;padding:4px 2px;
-                scrollbar-width:thin;scrollbar-color:{THEME['border']} transparent;">
-        {chat_html}
-    </div>
-    """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ── 오른쪽: 스탯 카드 ─────────────────────────────────────────
