@@ -99,25 +99,27 @@ def build_prompt(stage: str, user_input: str, context: dict) -> str:
     """
     base = "너는 초등학생 글짓기를 돕는 친절한 AI야. 반드시 JSON으로만 답해. 설명 금지.\n"
 
+    # 수정
     if stage == "기분탐색":
         return base + f"""
 입력: "{user_input}"
-JSON 형식으로만 답해:
-{{"npc":"루나","message":"공감 한 줄(20자 이내)","keywords":["키워드1","키워드2","키워드3"],"next_question":"주제 헌팅 질문(30자 이내)"}}"""
+JSON 형식으로만 답해. keywords는 반드시 4개, 각 항목은 15자 이내 짧은 문장으로:
+{{"npc":"루나","message":"공감 한 줄(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"주제 헌팅 질문(30자 이내)"}}"""
 
     elif stage == "주제헌팅":
         mood = context.get("mood", "")
         return base + f"""
 기분: "{mood}", 선택: "{user_input}"
 JSON:
-{{"npc":"글벌레","topic":"글 주제(20자 이내)","message":"칭찬 한 줄(20자 이내)","keywords":["키워드1","키워드2","키워드3"],"next_question":"서론 질문(30자 이내)"}}"""
+# 수정 주제헌팅
+{{"npc":"글벌레","topic":"글 주제(20자 이내)","message":"칭찬 한 줄(20자 이내)","keywords":["서론 문장1","서론 문장2","서론 문장3","서론 문장4"],"next_question":"서론 질문(30자 이내)"}}"""
 
     elif stage == "서론":
         topic = context.get("topic", "")
         return base + f"""
 주제: "{topic}", 서론: "{user_input}"
 JSON:
-{{"npc":"도토리","feedback":"서론 칭찬(20자 이내)","keywords":["키워드1","키워드2","키워드3"],"next_question":"본론 질문(30자 이내)"}}"""
+{{"npc":"도토리","feedback":"서론 칭찬(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"본론 질문(30자 이내)"}}"""
 
     elif stage == "본론":
         topic = context.get("topic", "")
@@ -125,7 +127,7 @@ JSON:
         return base + f"""
 주제: "{topic}", 서론요약: "{intro[:30]}", 본론: "{user_input}"
 JSON:
-{{"npc":"글벌레","feedback":"본론 칭찬(20자 이내)","keywords":["키워드1","키워드2","키워드3"],"next_question":"결론 질문(30자 이내)"}}"""
+{{"npc":"글벌레","feedback":"본론 칭찬(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"결론 질문(30자 이내)"}}"""
 
     elif stage == "결론":
         topic = context.get("topic", "")
@@ -243,25 +245,31 @@ def render_chat_history():
             </div>
             """, unsafe_allow_html=True)
 
-
+# 수정 — 항상 2x2 그리드, 긴 문장도 잘 보임
 def render_keyword_buttons():
-    """NPC 추천 키워드를 버튼으로 렌더링 (이스 이터널 선택지 스타일)"""
     if not st.session_state.suggested_keywords:
         return
 
-    st.markdown('<div style="color:#89b4fa;font-size:13px;margin:8px 0 6px;">💡 추천 키워드를 눌러 추가해요!</div>', unsafe_allow_html=True)
-    cols = st.columns(len(st.session_state.suggested_keywords))
-    for i, kw in enumerate(st.session_state.suggested_keywords):
-        with cols[i]:
+    st.markdown('<div style="color:#89b4fa;font-size:13px;margin:8px 0 6px;">💡 아래 문장을 눌러 입력창에 추가해요!</div>', unsafe_allow_html=True)
+
+    keywords = st.session_state.suggested_keywords[:4]  # 최대 4개
+
+    # 2x2 그리드로 배치
+    row1 = st.columns(2)
+    row2 = st.columns(2)
+    grid = [row1[0], row1[1], row2[0], row2[1]]
+
+    for i, kw in enumerate(keywords):
+        if i >= len(grid):
+            break
+        with grid[i]:
             if st.button(f"✨ {kw}", key=f"kw_{i}_{kw}", use_container_width=True):
-                # 클릭한 키워드를 입력창에 추가
-                current = st.session_state.input_text
-                if current and not current.endswith(" "):
+                current = st.session_state.input_text.strip()
+                if current:
                     st.session_state.input_text = current + " " + kw
                 else:
-                    st.session_state.input_text = current + kw
+                    st.session_state.input_text = kw
                 st.rerun()
-
 
 def render_stats_cards():
     """다이어트 앱 스타일 스탯 카드 (오른쪽 사이드바)"""
@@ -482,12 +490,15 @@ def main():
 
     # ── 첫 NPC 인사 (게임 시작 이벤트) ───────────────────────
     if not st.session_state.npc_intro_done:
+
+        # 수정
         add_npc_message(
             "루나",
             "안녕! 나는 루나야 🧝‍♀️ 오늘 글짓기 어드벤처를 함께할 거야!",
-            ["신나요", "설레요", "재미있어요", "행복해요"],
+            ["오늘 정말 신났어요!", "좋은 일이 있었어요", "조금 피곤해요", "그냥 평범한 하루예요"],
             "오늘 기분이 어때? 또는 오늘 있었던 재미있는 일을 말해줘!"
         )
+
         st.session_state.npc_intro_done = True
 
     # ── 스탯 카드 ─────────────────────────────────────────────
