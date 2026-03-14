@@ -114,44 +114,81 @@ def save_to_firestore(session_id, stage, user_input, ai_response):
         st.warning(f"저장 오류: {e}")
 
 
-# ── Gemini 프롬프트 ───────────────────────────────────────────
-def build_prompt(stage, user_input, context):
-    fmt   = context.get("format", "소설")
-    style = context.get("style", "")
-    style_hint = f" 문체 참고: {style}" if style else ""
-    base = f"너는 초등학생 글짓기를 돕는 친절한 AI야. 글 형식은 {fmt}이야.{style_hint} 반드시 JSON으로만 답해. 설명 금지.\n"
+# ── 중간 단계 응답 Data 풀 ────────────────────────────────────
+import random
 
-    if stage == "기분탐색":
-        return base + f"""
-입력: "{user_input}"
-keywords는 반드시 4개, 각 항목은 15자 이내 짧은 문장:
-{{"npc":"루나","message":"공감 한 줄(20자 이내)","keywords":["문장1","문장2","문장3","문장4"],"next_question":"주제 헌팅 질문(30자 이내)"}}"""
+STAGE_DATA = {
+    "기분탐색": {
+        "responses": [
+            {"npc": "루나", "message": "오늘 네 마음이 전해졌어! 😊", "next_question": "어떤 이야기를 쓰고 싶어?"},
+            {"npc": "루나", "message": "그런 하루였구나, 잘 알겠어! 💙", "next_question": "오늘 기분으로 어떤 글을 써볼까?"},
+            {"npc": "루나", "message": "네 기분이 글에 담길 거야! ✨", "next_question": "이 느낌을 주제로 만들어볼까?"},
+        ],
+        "keywords_pool": [
+            ["오늘 있었던 재미있는 일", "친구와 함께한 순간", "갑자기 떠오른 상상", "마음속 작은 소원"],
+            ["학교에서 생긴 일", "집에서 있었던 일", "꿈속 이야기", "좋아하는 것에 대해"],
+            ["가족과의 추억", "혼자만의 시간", "신기한 경험", "미래에 대한 기대"],
+            ["계절의 변화", "맛있는 음식 이야기", "동물과의 만남", "여행 속 한 장면"],
+        ],
+    },
+    "주제헌팅": {
+        "responses": [
+            {"npc": "글벌레", "message": "멋진 주제야! 꼭 써봐! 📚", "next_question": "글의 첫 문장을 어떻게 시작할까?"},
+            {"npc": "글벌레", "message": "그 주제 정말 좋은데! 😄", "next_question": "서론에서 가장 먼저 말하고 싶은 건?"},
+            {"npc": "글벌레", "message": "훌륭한 선택이야, 시작해보자! 🎯", "next_question": "어떤 느낌으로 글을 시작해볼까?"},
+        ],
+        "keywords_pool": [
+            ["그날, 나는 문을 열었다", "오래전 기억이 떠올랐다", "처음에는 별것 아닌 줄 알았다", "그것은 작은 것에서 시작됐다"],
+            ["어느 날 갑자기", "내가 가장 좋아하는 것은", "잊을 수 없는 순간이 있다", "세상에서 가장 신기한 일"],
+            ["우리가 처음 만났을 때", "비가 내리던 그날", "눈을 떠 보니 모든 게 달라져 있었다", "작은 씨앗 하나가 있었다"],
+            ["나는 항상 궁금했다", "모험은 그렇게 시작됐다", "누군가 내 어깨를 두드렸다", "그 순간을 나는 절대 잊지 못한다"],
+        ],
+    },
+    "서론": {
+        "responses": [
+            {"npc": "도토리", "feedback": "서론이 아주 탄탄해! 🌟", "next_question": "이제 본론에서 어떤 일이 일어날까?"},
+            {"npc": "도토리", "feedback": "멋진 시작이야, 계속해봐! 🐿️", "next_question": "중간에 어떤 사건이나 생각을 담을까?"},
+            {"npc": "도토리", "feedback": "서론이 정말 생생하다! ✨", "next_question": "본론에서 가장 하고 싶은 말은 뭐야?"},
+        ],
+        "keywords_pool": [
+            ["긴장되는 순간이 찾아왔다", "예상치 못한 일이 벌어졌다", "그때 내가 한 선택은", "모두가 놀란 이유가 있었다"],
+            ["중요한 깨달음을 얻었다", "갈등이 시작되는 순간", "두 가지 길 앞에서 고민했다", "그 비밀이 드러나기 시작했다"],
+            ["시간이 흘러 모든 게 바뀌었다", "포기하려던 순간 기적이 일어났다", "혼자가 아니라는 걸 알았다", "작은 용기가 큰 변화를 만들었다"],
+            ["기쁨과 슬픔이 뒤섞였다", "마음속에 질문이 생겼다", "함께라서 가능했던 일", "끝이라고 생각했는데 새 시작이었다"],
+        ],
+    },
+    "본론": {
+        "responses": [
+            {"npc": "글벌레", "feedback": "본론이 풍성해졌어! 📖", "next_question": "이 이야기를 어떻게 마무리할까?"},
+            {"npc": "글벌레", "feedback": "이야기가 살아 숨 쉬는 것 같아! 💡", "next_question": "결론에서 전하고 싶은 메시지는?"},
+            {"npc": "글벌레", "feedback": "본론 내용이 알차다! 🌿", "next_question": "이 경험에서 무엇을 느꼈어?"},
+        ],
+        "keywords_pool": [
+            ["그 경험이 나를 바꿔놓았다", "돌아보면 그것이 시작이었다", "앞으로도 잊지 않을 것 같다", "그래서 나는 이렇게 생각한다"],
+            ["결국 중요한 건 하나였다", "마음속 깊이 남은 기억", "다음에는 더 잘할 수 있을 것 같다", "이 일을 통해 많이 배웠다"],
+            ["모든 것이 연결되어 있었다", "작은 것이 큰 의미였다", "함께여서 더 특별했다", "기억 속에 영원히 남을 장면"],
+            ["그 순간이 나를 성장시켰다", "언젠가 다시 해보고 싶다", "나만의 방식으로 해냈다", "힘들었지만 후회하지 않는다"],
+        ],
+    },
+    "결론": {
+        "responses": [
+            {"npc": "루나", "feedback": "결론까지 완벽해! 👏", "full_review": "처음부터 끝까지 너무 잘 썼어! 정말 대단해!",  "badge": "이야기 요정"},
+            {"npc": "루나", "feedback": "멋진 마무리야! 🌟",   "full_review": "생각과 감정이 잘 담긴 훌륭한 글이야!",         "badge": "글짓기 챔피언"},
+            {"npc": "루나", "feedback": "감동적인 결론이야! 💙", "full_review": "상상력이 넘치는 멋진 작품을 완성했어!",        "badge": "창작 마법사"},
+            {"npc": "루나", "feedback": "깔끔하게 마무리했어! ✨", "full_review": "꾸준히 써낸 네 노력이 빛나는 글이야!",       "badge": "도전 영웅"},
+        ],
+    },
+}
 
-    elif stage == "주제헌팅":
-        return base + f"""
-기분: "{context.get('mood','')}", 선택: "{user_input}"
-JSON:
-{{"npc":"글벌레","topic":"{fmt} 주제(20자 이내)","message":"칭찬 한 줄(20자 이내)","keywords":["서론 시작 문장1","서론 시작 문장2","서론 시작 문장3","서론 시작 문장4"],"next_question":"서론 질문(30자 이내)"}}"""
 
-    elif stage == "서론":
-        return base + f"""
-주제: "{context.get('topic','')}", 서론: "{user_input}"
-JSON:
-{{"npc":"도토리","feedback":"서론 칭찬(20자 이내)","keywords":["본론 힌트1","본론 힌트2","본론 힌트3","본론 힌트4"],"next_question":"본론 질문(30자 이내)"}}"""
-
-    elif stage == "본론":
-        return base + f"""
-주제: "{context.get('topic','')}", 서론요약: "{context.get('intro','')[:30]}", 본론: "{user_input}"
-JSON:
-{{"npc":"글벌레","feedback":"본론 칭찬(20자 이내)","keywords":["결론 힌트1","결론 힌트2","결론 힌트3","결론 힌트4"],"next_question":"결론 질문(30자 이내)"}}"""
-
-    elif stage == "결론":
-        return base + f"""
-주제: "{context.get('topic','')}", 결론: "{user_input}"
-JSON:
-{{"npc":"루나","feedback":"결론 칭찬(20자 이내)","full_review":"전체 칭찬(30자 이내)","badge":"획득 칭호(10자 이내)"}}"""
-
-    return base
+def get_stage_response(stage, user_input=None):
+    """미리 정의된 data 풀에서 해당 단계의 응답을 랜덤 선택"""
+    data = STAGE_DATA.get(stage, {})
+    responses  = data.get("responses", [{}])
+    kw_pool    = data.get("keywords_pool", [[]])
+    resp = random.choice(responses).copy()
+    resp["keywords"] = random.choice(kw_pool)
+    return resp
 
 
 def build_writing_prompt(context):
@@ -173,43 +210,6 @@ def build_writing_prompt(context):
 - 제목을 첫 줄에 붙여줘 (형식: # 제목)
 - {NOVEL_LENGTH}자 내외 (너무 짧거나 길지 않게)
 - JSON 없이 본문만 출력"""
-
-
-def call_gemini(prompt):
-    import json, re
-    try:
-        client = get_gemini_client()
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        # 토큰 사용량 누적 저장
-        usage = getattr(response, "usage_metadata", None)
-        if usage:
-            st.session_state.token_in  = st.session_state.get("token_in", 0)  + getattr(usage, "prompt_token_count", 0)
-            st.session_state.token_out = st.session_state.get("token_out", 0) + getattr(usage, "candidates_token_count", 0)
-        text = response.text.strip()
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        else:
-            # JSON 파싱 실패 — AI가 JSON 대신 다른 형식으로 답한 경우
-            # 재시도: JSON만 달라고 다시 요청
-            retry_prompt = prompt + "\n\n반드시 JSON만 출력하고 다른 텍스트는 절대 포함하지 마."
-            response2 = client.models.generate_content(model=GEMINI_MODEL, contents=retry_prompt)
-            text2 = response2.text.strip()
-            match2 = re.search(r'\{.*\}', text2, re.DOTALL)
-            if match2:
-                return json.loads(match2.group())
-            st.warning(f"⚠️ AI 응답 파싱 실패 (2회): {text2[:300]}")
-    except Exception as e:
-        err_str = str(e)
-        if "API_KEY" in err_str or "api_key" in err_str or "INVALID" in err_str:
-            st.error("🔑 Gemini API 키가 올바르지 않아요. Streamlit Cloud Secrets의 GEMINI_API_KEY를 확인해주세요.")
-        elif "quota" in err_str.lower() or "429" in err_str:
-            st.error("⏱️ API 사용량 한도 초과예요. 잠시 후 다시 시도해주세요.")
-        elif "network" in err_str.lower() or "connect" in err_str.lower():
-            st.error("🌐 네트워크 연결 문제예요. 인터넷 연결을 확인해주세요.")
-        else:
-            st.error(f"❌ AI 오류: {err_str}")
-    return {}
 
 
 def call_gemini_writing(prompt):
@@ -478,7 +478,7 @@ def render_stats_cards():
         f'<div style="background:{THEME["card_bg"]};border-radius:10px;padding:8px 12px;'
         f'border:1px solid {THEME["border"]};margin-bottom:8px;'
         f'display:flex;justify-content:space-between;align-items:center;">'
-        f'<span style="color:{THEME["text_muted"]};font-size:10px;">🔢 토큰 사용량</span>'
+        f'<span style="color:{THEME["text_muted"]};font-size:10px;">🔢 글 생성 토큰</span>'
         f'<span style="color:{THEME["primary"]};font-size:11px;font-weight:600;">'
         f'입력 {token_in:,} / 출력 {token_out:,} = 총 {total_token:,}</span>'
         f'</div>',
@@ -511,47 +511,42 @@ def render_keyword_buttons():
 def process_stage(user_input):
     stage   = STAGES[st.session_state.stage_idx]
     context = st.session_state.context
-    with st.spinner("✨ AI가 생각하는 중..."):
-        result = call_gemini(build_prompt(stage, user_input, context))
-    if not result:
-        # 실패 시: 방금 추가한 player 메시지 제거 (중복 방지)
-        if st.session_state.chat_history and st.session_state.chat_history[-1]["type"] == "player":
-            st.session_state.chat_history.pop()
-        # 입력창 복원
-        st.session_state.input_text = user_input
-        return
+
+    # 중간 단계: data 풀에서 즉시 선택 (API 호출 없음)
+    result = get_stage_response(stage, user_input)
 
     if stage == "기분탐색":
         context["mood"] = user_input
-        add_npc_message(result.get("npc","루나"), result.get("message",""),
-                        result.get("keywords",[]), result.get("next_question",""))
+        add_npc_message(result.get("npc", "루나"), result.get("message", ""),
+                        result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 1
 
     elif stage == "주제헌팅":
-        topic = result.get("topic", user_input)
+        # 주제는 사용자 입력을 그대로 사용
+        topic = user_input
         context["topic"] = topic
-        add_npc_message(result.get("npc","글벌레"),
-                        f"주제 확정! 『{topic}』 {result.get('message','')}",
-                        result.get("keywords",[]), result.get("next_question",""))
+        add_npc_message(result.get("npc", "글벌레"),
+                        f"주제 확정! 『{topic}』 {result.get('message', '')}",
+                        result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 2
 
     elif stage == "서론":
         context["intro"] = user_input
-        add_npc_message(result.get("npc","도토리"), result.get("feedback","서론 완성!"),
-                        result.get("keywords",[]), result.get("next_question",""))
+        add_npc_message(result.get("npc", "도토리"), result.get("feedback", "서론 완성!"),
+                        result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 3
 
     elif stage == "본론":
         context["body"] = user_input
-        add_npc_message(result.get("npc","글벌레"), result.get("feedback","본론 완성!"),
-                        result.get("keywords",[]), result.get("next_question",""))
+        add_npc_message(result.get("npc", "글벌레"), result.get("feedback", "본론 완성!"),
+                        result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 4
 
     elif stage == "결론":
         context["conclusion"] = user_input
-        context["badge"] = result.get("badge","글짓기 영웅")
-        add_npc_message(result.get("npc","루나"),
-                        f"🎉 기승전결 완성! {result.get('full_review','')}\n이제 AI가 글을 완성해줄게요! ✨")
+        context["badge"] = result.get("badge", "글짓기 영웅")
+        add_npc_message(result.get("npc", "루나"),
+                        f"🎉 기승전결 완성! {result.get('full_review', '')}\n이제 AI가 글을 완성해줄게요! ✨")
         st.session_state.stage_idx = 5
 
     save_to_firestore(st.session_state.session_id, stage, user_input, str(result))
