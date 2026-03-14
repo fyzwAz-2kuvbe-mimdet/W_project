@@ -12,7 +12,7 @@ from google import genai
 import datetime
 
 # ── 상수 ──────────────────────────────────────────────────────
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 NOVEL_LENGTH = 3000
 
 # ── UI 테마 ───────────────────────────────────────────────────
@@ -220,7 +220,26 @@ def call_gemini_writing(prompt):
         )
         return response.text.strip()
     except Exception as e:
-        st.error(f"글 생성 오류: {e}")
+        err_str = str(e)
+        is_quota = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
+
+        if is_quota:
+            st.error("⏱️ API 사용량 한도를 초과했어요. 아래 프롬프트를 복사해서 Gemini에 직접 붙여넣어 보세요!")
+        else:
+            st.error(f"글 생성 오류: {e}")
+
+        with st.expander("📋 Gemini에 직접 입력할 프롬프트 보기", expanded=is_quota):
+            c1 = THEME["primary_dk"]
+            c2 = THEME["primary"]
+            st.markdown(
+                f'<div style="color:{c1};font-size:12px;margin-bottom:8px;">' +
+                f'아래 내용을 복사해서 ' +
+                f'<a href="https://gemini.google.com" target="_blank" ' +
+                f'style="color:{c2};font-weight:700;">gemini.google.com</a>' +
+                ' 에 붙여넣으면 직접 글을 받을 수 있어요! 🚀</div>',
+                unsafe_allow_html=True
+            )
+            st.code(prompt, language=None)
         return ""
 
 
