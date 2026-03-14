@@ -26,40 +26,93 @@ TARGET_LENGTHS = {
 }
 
 AUTHOR_STYLES = {
-    "생텍쥐페리 (어린왕자)": {
-        "role": "20년 경력의 동화 작가",
-        "tone": "시적, 철학적, 담백함",
-        "desc": "상징적 사물, 짧고 여운 있는 문장",
+    "소설": {
+        "김영하": {
+            "role": "냉철한 시선의 한국 현대 소설가",
+            "tone": "건조하고 세련됨, 지적 냉소",
+            "desc": "일상의 낯설게 하기, 인물의 심리적 갈등과 날카로운 관찰",
+        },
+        "무라카미 하루키": {
+            "role": "일상과 비현실을 넘나드는 일본 소설가",
+            "tone": "잔잔하고 몽환적, 고독한 서정",
+            "desc": "음악·음식 등 감각적 디테일, 고독한 주인공, 비현실적 요소",
+        },
+        "제인 오스틴": {
+            "role": "클래식하고 위트 있는 근대 소설가",
+            "tone": "우아한 풍자, 예리한 사회 관찰",
+            "desc": "격식 있는 말투, 인물 간 오해와 화해, 미묘한 감정 묘사",
+        },
+        "가브리엘 가르시아 마르케스": {
+            "role": "마술적 사실주의의 대가",
+            "tone": "몽환적이고 서사적, 신화적 분위기",
+            "desc": "현실과 환상의 경계 허물기, 풍부한 가족·마을 서사",
+        },
     },
-    "J.K. 롤링 (해리포터)": {
-        "role": "판타지 세계관 설계자",
-        "tone": "박진감, 세밀한 묘사, 신비로움",
-        "desc": "치밀한 복선과 반전, 시각적 묘사",
+    "시": {
+        "윤동주": {
+            "role": "순수하고 저항적인 한국 서정 시인",
+            "tone": "맑고 성찰적, 슬프고 아름다움",
+            "desc": "별·하늘·바람 등 자연 이미지, 자아 성찰과 시대적 부끄러움",
+        },
+        "파블로 네루다": {
+            "role": "열정과 감각의 칠레 시인",
+            "tone": "열정적이고 육감적, 강렬한 이미지",
+            "desc": "사랑과 자연을 감각적으로 묘사, 대담한 비유와 은유",
+        },
+        "에밀리 디킨슨": {
+            "role": "내면 세계를 탐구한 미국 시인",
+            "tone": "압축적이고 신비로움, 독특한 리듬",
+            "desc": "짧은 시행, 대시(-) 활용, 죽음·영원·자연을 독창적으로 표현",
+        },
+        "김소월": {
+            "role": "한국의 한(恨)과 정서를 담은 시인",
+            "tone": "애절하고 민요적, 그리움과 이별",
+            "desc": "민요 리듬, 여성적 화자, 이별과 그리움의 정서",
+        },
     },
-    "이솝 (이솝우화)": {
-        "role": "지혜로운 우화 작가",
-        "tone": "명확함, 교훈적, 객관적",
-        "desc": "의인화된 동물, 마지막에 교훈 명시",
+    "시나리오": {
+        "봉준호": {
+            "role": "장르를 초월하는 한국 영화감독·작가",
+            "tone": "블랙코미디와 사회 비판, 예상 밖 반전",
+            "desc": "계층 갈등, 일상 속 비극, 장르 혼합과 충격적 반전",
+        },
+        "크리스토퍼 놀란": {
+            "role": "시간과 현실을 실험하는 영국 감독·작가",
+            "tone": "철학적이고 웅장함, 긴장감 있는 구조",
+            "desc": "비선형 시간 구조, 정체성·기억·현실 탐구, 치밀한 복선",
+        },
+        "노희경": {
+            "role": "인간의 감정을 세밀히 그리는 한국 드라마 작가",
+            "tone": "따뜻하고 섬세함, 진솔한 대사",
+            "desc": "인물 감정 중심 대화, 평범한 일상 속 깊은 울림",
+        },
+        "아론 소킨": {
+            "role": "빠르고 지적인 대사의 미국 각본가",
+            "tone": "속도감 있고 위트 넘침, 논쟁적",
+            "desc": "워킹 앤드 토킹, 중첩 대사, 이상주의와 현실의 충돌",
+        },
     },
-    "김영하 (냉소적 유머)": {
-        "role": "냉철한 시선의 현대 소설가",
-        "tone": "건조함, 세련됨, 지적임",
-        "desc": "일상의 낯설게 하기, 심리적 갈등",
-    },
-    "진 웹스터 (키다리 아저씨)": {
-        "role": "긍정 에너지가 넘치는 스토리텔러",
-        "tone": "발랄함, 수다스러움, 따뜻함",
-        "desc": "1인칭 편지 형식, 소소한 유머",
-    },
-    "제인 오스틴 (오만과 편견)": {
-        "role": "클래식하고 위트 있는 근대 소설가",
-        "tone": "우아함, 냉철한 풍자, 예리한 관찰",
-        "desc": "격식 있는 말투, 오해와 화해의 서사",
-    },
-    "이슬아 (일간 이슬아)": {
-        "role": "매일 글을 쓰는 성실한 에세이스트",
-        "tone": "솔직함, 씩씩함, 구체적이고 다정함",
-        "desc": "1인칭 고백체, 몸의 감각과 구체적 묘사",
+    "에세이": {
+        "몽테뉴": {
+            "role": "근대 에세이의 창시자",
+            "tone": "자유롭고 솔직함, 자기 성찰적",
+            "desc": "일상의 사소한 것에서 철학 발견, 형식 없는 자유로운 사유",
+        },
+        "이슬아": {
+            "role": "매일 글을 쓰는 한국 에세이스트",
+            "tone": "솔직하고 씩씩함, 구체적이고 다정함",
+            "desc": "1인칭 고백체, 몸의 감각과 구체적 사물 묘사, 담백한 감동",
+        },
+        "버지니아 울프": {
+            "role": "의식의 흐름을 개척한 영국 작가",
+            "tone": "섬세하고 시적, 내면 탐구",
+            "desc": "의식의 흐름, 감각적 묘사, 여성·예술·일상에 대한 통찰",
+        },
+        "이어령": {
+            "role": "한국 지성을 대표하는 문화 비평가·작가",
+            "tone": "통찰력 있고 풍부함, 문화적 상상력",
+            "desc": "풍부한 비유와 역설, 동서양 문화 비교, 창의적 언어 유희",
+        },
     },
 }
 
@@ -248,11 +301,12 @@ def build_writing_request(context):
     plot       = context.get("plot", "")
     length     = context.get("length", 3000)
 
-    # 작가 스타일 정보
-    style_info = AUTHOR_STYLES.get(style, {})
+    # 작가 스타일 정보 (장르별 딕셔너리에서 조회)
+    style_info = AUTHOR_STYLES.get(fmt, {}).get(style, {})
     role       = style_info.get("role", "경험 많은 작가")
     tone       = style_info.get("tone", "")
-    style_line = f"- 작가 스타일: {style} / 역할: {role} / 톤: {tone}" if style else ""
+    desc       = style_info.get("desc", "")
+    style_line = f"- 작가 스타일: {style} / 역할: {role} / 톤: {tone} / 특징: {desc}" if style else ""
 
     # 대상 연령
     age_target = age_custom if age == "직접 입력" and age_custom else age
@@ -463,7 +517,7 @@ def render_setup_panel():
     if fmt:
         fmt_icon = WRITING_FORMATS[fmt][0]
         parts = [f"{fmt_icon} {fmt}"]
-        if style: parts.append(style.split("(")[0].strip())
+        if style: parts.append(style)
         if age:   parts.append(age)
         if plot:  parts.append(plot)
         label = "🎨 설정완료: " + " · ".join(parts)
@@ -492,30 +546,37 @@ def render_setup_panel():
                     unsafe_allow_html=True
                 )
 
-        # ── Step 2: 작가 스타일 ───────────────────────────────
+        # ── Step 2: 작가 스타일 (형식 선택 후 해당 장르 작가만 표시) ──
         st.markdown(
             f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-top:12px;margin-bottom:6px;">' +
             f'🖋️ 작가 스타일 <span style="color:{THEME["text_muted"]};font-size:10px;font-weight:400;">(선택 안 해도 됩니다)</span></div>',
             unsafe_allow_html=True
         )
-        style_names = list(AUTHOR_STYLES.keys())
-        s_cols = st.columns(4)
-        for i, s_name in enumerate(style_names):
-            col_idx = i % 4
-            with s_cols[col_idx]:
-                info = AUTHOR_STYLES[s_name]
-                is_sel = style == s_name
-                btn_label = f"{s_name} ✅" if is_sel else s_name
-                if st.button(btn_label, key=f"sty_{s_name}", use_container_width=True):
-                    ctx["style"] = "" if is_sel else s_name
-                    st.session_state.setup_open = True
-                    st.rerun()
-                st.markdown(
-                    f'<div style="text-align:center;color:{THEME["text_muted"]};font-size:10px;margin-top:-4px;line-height:1.3;">{info["tone"]}</div>',
-                    unsafe_allow_html=True
-                )
-            if (i + 1) % 4 == 0 and (i + 1) < len(style_names):
+        if fmt:
+            genre_styles = AUTHOR_STYLES.get(fmt, {})
+            if genre_styles:
+                # 형식이 바뀌면 스타일 초기화
+                if style and style not in genre_styles:
+                    ctx["style"] = ""
+                    style = ""
                 s_cols = st.columns(4)
+                for i, (s_name, info) in enumerate(genre_styles.items()):
+                    with s_cols[i % 4]:
+                        is_sel = style == s_name
+                        btn_label = f"{s_name} ✅" if is_sel else s_name
+                        if st.button(btn_label, key=f"sty_{fmt}_{s_name}", use_container_width=True):
+                            ctx["style"] = "" if is_sel else s_name
+                            st.session_state.setup_open = True
+                            st.rerun()
+                        st.markdown(
+                            f'<div style="text-align:center;color:{THEME["text_muted"]};font-size:10px;margin-top:-4px;line-height:1.3;">{info["tone"]}</div>',
+                            unsafe_allow_html=True
+                        )
+        else:
+            st.markdown(
+                f'<div style="color:{THEME["text_muted"]};font-size:11px;">📌 먼저 형식을 선택하면 해당 장르 작가가 표시돼요!</div>',
+                unsafe_allow_html=True
+            )
 
         # ── Step 3: 대상 연령 ─────────────────────────────────
         st.markdown(
@@ -568,7 +629,7 @@ def render_setup_panel():
         if fmt:
             st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
             fmt_icon = WRITING_FORMATS[fmt][0]
-            btn_txt  = f"✅ {fmt_icon} {fmt}" + (f" · {style.split('(')[0].strip()}" if style else "") + " 로 시작!"
+            btn_txt  = f"✅ {fmt_icon} {fmt}" + (f" · {style}" if style else "") + " 로 시작!"
             if st.button(btn_txt, use_container_width=True, type="primary", key="setup_confirm"):
                 st.session_state.setup_open = False
                 st.rerun()
@@ -925,7 +986,7 @@ def main():
     if not st.session_state.npc_intro_done:
         fmt   = st.session_state.context.get("format","소설")
         style = st.session_state.context.get("style","")
-        style_msg = f" {style.split('(')[0].strip()}로" if style else ""
+        style_msg = f" {style}로" if style else ""
         length = st.session_state.context.get("length", 3000)
         add_npc_message(
             "루나",
