@@ -33,29 +33,39 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent / "data"
 
 def _load_json(filename):
+    """JSON 파일 로딩 — 실패 시 예외를 그대로 올려서 원인을 노출"""
     path = DATA_DIR / filename
     if not path.exists():
-        st.error(f"데이터 파일을 찾을 수 없어요: {path}")
-        return {}
+        raise FileNotFoundError(
+            f"[데이터 파일 없음] {path}\n"
+            f"프로젝트 루트의 data/ 폴더에 {filename} 파일이 있어야 합니다."
+        )
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
-@st.cache_data
-def load_author_styles():
-    return _load_json("author_styles.json")
-
-@st.cache_data
-def load_npc_responses():
-    return _load_json("npc_responses.json")
-
-@st.cache_data
-def load_keywords():
-    return _load_json("keywords.json")
+def _load_all_data():
+    """앱 시작 시 3개 파일을 모두 로딩. 하나라도 실패하면 상세 오류 표시 후 중단."""
+    try:
+        author_styles = _load_json("author_styles.json")
+        npc_responses = _load_json("npc_responses.json")
+        keywords      = _load_json("keywords.json")
+        return author_styles, npc_responses, keywords
+    except FileNotFoundError as e:
+        import traceback
+        st.error(str(e))
+        st.info(
+            "💡 해결 방법:\n"
+            "1. 프로젝트 폴더에 `data/` 폴더가 있는지 확인하세요.\n"
+            "2. `data/author_styles.json`, `data/npc_responses.json`, `data/keywords.json` 3개 파일이 있어야 합니다.\n"
+            "3. GitHub에 `data/` 폴더가 push 됐는지 확인하세요."
+        )
+        st.stop()
+    except json.JSONDecodeError as e:
+        st.error(f"[JSON 파싱 오류] {e}")
+        st.stop()
 
 # 앱 시작 시 로딩
-AUTHOR_STYLES  = load_author_styles()
-NPC_RESPONSES  = load_npc_responses()
-KEYWORDS_POOL  = load_keywords()
+AUTHOR_STYLES, NPC_RESPONSES, KEYWORDS_POOL = _load_all_data()
 
 # 단계명 → 기승전결
 STAGE_QUESTIONS = {
