@@ -748,8 +748,9 @@ def generate_writing():
     if st.session_state.writing_done:
         return
     fmt     = st.session_state.context.get("format", "소설")
+    length  = st.session_state.context.get("length", 3000)
     request = build_writing_request(st.session_state.context)
-    with st.spinner(f"📖 AI가 {NOVEL_LENGTH}자 {fmt}을 쓰고 있어요..."):
+    with st.spinner(f"📖 AI가 {length:,}자 {fmt}을 쓰고 있어요..."):
         text = call_gemini_writing(request)
     if text:
         st.session_state.writing_text = text
