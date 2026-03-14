@@ -549,7 +549,10 @@ def process_stage(user_input):
                         f"🎉 기승전결 완성! {result.get('full_review', '')}\n이제 AI가 글을 완성해줄게요! ✨")
         st.session_state.stage_idx = 5
 
-    save_to_firestore(st.session_state.session_id, stage, user_input, str(result))
+    try:
+        save_to_firestore(st.session_state.session_id, stage, user_input, str(result))
+    except Exception:
+        pass  # Firestore 저장 실패해도 진행 계속
     st.session_state.input_text = ""
 
 
@@ -802,13 +805,13 @@ def main():
             send_label = "🚀 전송하기" if stage != "결론" else "🎉 글 완성하기!"
             if st.button(send_label, use_container_width=True, type="primary"):
                 cleaned = user_input.strip()
-                if not cleaned:
+                if not st.session_state.context.get("format"):
+                    st.warning("먼저 글쓰기 형식을 선택해줘요! 🎨")
+                elif not cleaned:
                     st.warning("내용을 입력하거나 버튼을 눌러줘요! 💬")
                 else:
                     add_player_message(cleaned)
                     process_stage(cleaned)
-                    # process_stage 내부에서 실패 시 chat_history를 롤백했으므로
-                    # 성공/실패 모두 rerun해서 화면 갱신
                     st.rerun()
         with col_clear:
             if st.button("🗑️", use_container_width=True, help="입력 내용 지우기"):
