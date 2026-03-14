@@ -6,6 +6,7 @@
 # ============================================================
 
 import streamlit as st
+import random
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google import genai
@@ -44,28 +45,31 @@ def _load_json(filename):
         return json.load(f)
 
 def _load_all_data():
-    """앱 시작 시 3개 파일을 모두 로딩. 하나라도 실패하면 상세 오류 표시 후 중단."""
+    """앱 시작 시 3개 파일을 모두 로딩"""
+    import sys
     try:
         author_styles = _load_json("author_styles.json")
         npc_responses = _load_json("npc_responses.json")
         keywords      = _load_json("keywords.json")
         return author_styles, npc_responses, keywords
-    except FileNotFoundError as e:
-        import traceback
-        st.error(str(e))
-        st.info(
-            "💡 해결 방법:\n"
-            "1. 프로젝트 폴더에 `data/` 폴더가 있는지 확인하세요.\n"
-            "2. `data/author_styles.json`, `data/npc_responses.json`, `data/keywords.json` 3개 파일이 있어야 합니다.\n"
-            "3. GitHub에 `data/` 폴더가 push 됐는지 확인하세요."
-        )
-        st.stop()
-    except json.JSONDecodeError as e:
-        st.error(f"[JSON 파싱 오류] {e}")
-        st.stop()
+    except Exception as e:
+        # Streamlit이 아직 초기화 전일 수 있으므로 print + st 둘 다 시도
+        print(f"[DATA LOAD ERROR] {e}", file=sys.stderr)
+        try:
+            st.error(f"데이터 파일 로딩 실패: {e}")
+            st.info(
+                "💡 data/ 폴더에 3개 JSON 파일이 있는지 확인하세요.\n"
+                "author_styles.json / npc_responses.json / keywords.json"
+            )
+            st.stop()
+        except Exception:
+            raise
 
 # 앱 시작 시 로딩
-AUTHOR_STYLES, NPC_RESPONSES, KEYWORDS_POOL = _load_all_data()
+_data = _load_all_data()
+AUTHOR_STYLES  = _data[0] if _data else {}
+NPC_RESPONSES  = _data[1] if _data else {}
+KEYWORDS_POOL  = _data[2] if _data else {}
 
 # ── UI 테마 ───────────────────────────────────────────────────
 THEME = {
@@ -114,10 +118,28 @@ STAGE_QUESTIONS = {
 }
 
 
+# 기본 fallback 응답 (JSON 파일 로딩 실패 또는 키 불일치 시 사용)
+_FALLBACK_RESPONSES = {
+    "기분탐색": [{"npc": "루나",   "message": "오늘 기분이 전해졌어! 😊",        "next_question": "어떤 이야기를 써볼까?"}],
+    "주제헌팅": [{"npc": "글벌레", "message": "멋진 주제야! 📚",                  "next_question": "주인공은 누구인가요? 🐰"}],
+    "기":       [{"npc": "도토리", "feedback": "이야기가 시작됐어! 🌱",           "next_question": "어떤 신나는 일이 생겼나요? 🚀"}],
+    "승":       [{"npc": "글벌레", "feedback": "이야기가 펼쳐지네! 🚀",           "next_question": "갑자기 어떤 위기가 찾아왔나요? ⚡"}],
+    "전":       [{"npc": "도토리", "feedback": "긴장감 넘쳐! ⚡",                 "next_question": "어떻게 문제를 해결했나요? 🌈"}],
+    "결":       [{"npc": "루나",   "feedback": "완벽한 마무리야! 👏",             "full_review": "정말 대단해!", "badge": "글짓기 영웅"}],
+}
+_FALLBACK_KEYWORDS = {
+    "기분탐색": [["오늘 있었던 일", "친구와의 순간", "떠오른 상상", "마음속 소원"]],
+    "주제헌팅": [["토끼 소녀 달이", "용감한 소년 하늘이", "작은 마법사 별이", "강아지 뭉치"]],
+    "기":       [["보물 지도 발견", "괴물이 나타남", "새 친구를 만남", "마법 문 발견"]],
+    "승":       [["친구가 위험", "보물이 사라짐", "길을 잃음", "마법이 풀림"]],
+    "전":       [["모두 힘을 합침", "마법의 힘으로", "용기를 냄", "친구의 도움"]],
+    "결":       [["모두 행복하게", "새 모험 시작", "소중한 것 회복", "진짜 우정"]],
+}
+
 def get_stage_response(stage, user_input=None):
     """외부 JSON 파일에서 해당 단계의 NPC 응답과 키워드를 랜덤 선택"""
-    responses = NPC_RESPONSES.get(stage, [{}])
-    kw_pool   = KEYWORDS_POOL.get(stage, [[]])
+    responses = NPC_RESPONSES.get(stage) or _FALLBACK_RESPONSES.get(stage, [{"npc": "루나", "message": "잘 했어! 😊"}])
+    kw_pool   = KEYWORDS_POOL.get(stage) or _FALLBACK_KEYWORDS.get(stage, [["계속해봐요"]])
     resp = random.choice(responses).copy()
     resp["keywords"] = random.choice(kw_pool) if kw_pool else []
     return resp
