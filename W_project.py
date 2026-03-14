@@ -33,6 +33,39 @@ from pathlib import Path
 # Streamlit Cloud / 로컬 모두 동작하는 경로
 DATA_DIR = Path(__file__).parent / "data"
 
+# ── Firebase ──────────────────────────────────────────────────
+@st.cache_resource
+def init_firebase():
+    if firebase_admin._apps:
+        return firebase_admin.get_app()
+    cfg = dict(st.secrets["firebase"])
+    cfg["private_key"] = cfg["private_key"].replace("\\n", "\n")
+    return firebase_admin.initialize_app(credentials.Certificate(cfg))
+
+@st.cache_resource
+def get_db():
+    init_firebase()
+    return firestore.client()
+
+@st.cache_resource
+def get_gemini_client():
+    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+def save_to_firestore(session_id, stage, user_input, ai_response):
+    try:
+        get_db().collection("stories").document(session_id).set({
+            "session_id": session_id,
+            "last_updated": datetime.datetime.now(),
+            "stage": stage,
+            "history": firestore.ArrayUnion([{
+                "stage": stage, "user": user_input,
+                "ai": ai_response, "time": datetime.datetime.now().isoformat()
+            }])
+        }, merge=True)
+    except Exception as e:
+        st.warning(f"저장 오류: {e}")
+
+
 def _load_json(filename):
     """JSON 파일 로딩 — 실패 시 예외를 그대로 올려서 원인을 노출"""
     path = DATA_DIR / filename
