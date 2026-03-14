@@ -13,255 +13,185 @@ import datetime
 
 # ── 상수 ──────────────────────────────────────────────────────
 GEMINI_MODEL = "gemini-2.0-flash"
-NOVEL_LENGTH = 3000
 
-# ── UI 테마 ───────────────────────────────────────────────────
-THEME = {
-    "bg":         "#f0f8ff",
-    "card":       "#ffffff",
-    "card_bg":    "#e3f2fd",
-    "border":     "#90caf9",
-    "primary":    "#2196f3",
-    "primary_dk": "#1565c0",
-    "text":       "#1a237e",
-    "text_muted": "#90caf9",
-    "danger":     "#ef5350",
-    "fire":       "#ff7043",
+TARGET_AGES = ["4~7세", "7~9세", "10~13세", "14~16세", "직접 입력"]
+
+PLOT_TYPES = ["성장과 모험", "결점의 재발견", "반복과 확장", "부메랑 효과", "비밀공유와 들통"]
+
+TARGET_LENGTHS = {
+    "짧은 글 (약 3,000자)":  3000,
+    "일반 글 (약 5,000자)":  5000,
+    "긴 글 (약 7,500자)":    7500,
+    "장편 (약 10,000자)":   10000,
 }
 
-# ── 글쓰기 형식 & 문체 ────────────────────────────────────────
-WRITING_FORMATS = {
-    "소설":     ("📖", "인물과 사건이 있는 이야기"),
-    "에세이":   ("✏️", "내 생각과 경험을 솔직하게"),
-    "시":       ("🌸", "짧고 아름다운 언어로"),
-    "시나리오": ("🎬", "대사와 장면으로 표현"),
-}
+# ── 외부 데이터 파일 로딩 ────────────────────────────────────
+import json
+from pathlib import Path
 
-WRITING_STYLES = {
-    "소설": {
-        "김영하 스타일":      "간결하고 도시적인 문체, 냉소적 유머",
-        "이슬아 스타일":      "따뜻하고 일상적인 산문, 감성적 묘사",
-        "제인 오스틴 스타일": "세밀한 심리 묘사와 위트 있는 대화",
-        "생텍쥐페리 스타일":  "동화 같은 상상력, 철학적 여운",
-    },
-    "에세이": {
-        "몽테뉴 스타일":          "자유롭고 솔직한 자기 성찰",
-        "버지니아 울프 스타일":   "의식의 흐름, 섬세한 감각 묘사",
-        "김훈 스타일":            "짧고 단호한 문장, 사물의 본질 탐구",
-        "이어령 스타일":          "풍부한 비유와 통찰, 문화적 상상력",
-    },
-    "시": {
-        "윤동주 스타일":          "순수하고 성찰적인 서정시",
-        "김소월 스타일":          "한(恨)의 정서, 민요적 리듬",
-        "에밀리 디킨슨 스타일":   "짧고 압축적, 독특한 구두점",
-        "파블로 네루다 스타일":   "열정적이고 감각적인 이미지",
-    },
-    "시나리오": {
-        "봉준호 스타일":          "장르 혼합, 예상 못한 반전",
-        "노희경 스타일":          "인물 감정에 집중한 대화 중심",
-        "크리스토퍼 놀란 스타일": "시간 구조 실험, 철학적 주제",
-        "미야자키 하야오 스타일": "자연과 모험, 따뜻한 세계관",
-    },
-}
+# Streamlit Cloud / 로컬 모두 동작하는 경로
+DATA_DIR = Path(__file__).parent / "data"
 
-# ── 단계 정의 ─────────────────────────────────────────────────
-STAGES       = ["기분탐색", "주제헌팅", "서론", "본론", "결론", "글생성", "완성"]
-STAGE_ICONS  = ["💬", "🎯", "📖", "✍️", "🏁", "✨", "🌟"]
-STAGE_LABELS = ["기분 탐색", "주제 헌팅", "서론 쓰기", "본론 쓰기", "결론 쓰기", "글 생성", "완성!"]
+def _load_json(filename):
+    path = DATA_DIR / filename
+    if not path.exists():
+        st.error(f"데이터 파일을 찾을 수 없어요: {path}")
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
-NPC_CHARACTERS = {
-    "루나":   {"emoji": "🧝‍♀️", "color": "#2196f3", "role": "안내자"},
-    "도토리": {"emoji": "🐿️",  "color": "#ff7043", "role": "응원단"},
-    "글벌레": {"emoji": "📚",   "color": "#26a69a", "role": "박사"},
-}
+@st.cache_data
+def load_author_styles():
+    return _load_json("author_styles.json")
 
-CHAR_LIMITS = {
-    "기분탐색": 50, "주제헌팅": 30,
-    "서론": 80, "본론": 120, "결론": 80,
-}
+@st.cache_data
+def load_npc_responses():
+    return _load_json("npc_responses.json")
 
+@st.cache_data
+def load_keywords():
+    return _load_json("keywords.json")
 
-# ── Firebase ──────────────────────────────────────────────────
-@st.cache_resource
-def init_firebase():
-    if firebase_admin._apps:
-        return firebase_admin.get_app()
-    cfg = dict(st.secrets["firebase"])
-    cfg["private_key"] = cfg["private_key"].replace("\\n", "\n")
-    return firebase_admin.initialize_app(credentials.Certificate(cfg))
+# 앱 시작 시 로딩
+AUTHOR_STYLES  = load_author_styles()
+NPC_RESPONSES  = load_npc_responses()
+KEYWORDS_POOL  = load_keywords()
 
-@st.cache_resource
-def get_db():
-    init_firebase()
-    return firestore.client()
-
-@st.cache_resource
-def get_gemini_client():
-    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-def save_to_firestore(session_id, stage, user_input, ai_response):
-    try:
-        get_db().collection("stories").document(session_id).set({
-            "session_id": session_id,
-            "last_updated": datetime.datetime.now(),
-            "stage": stage,
-            "history": firestore.ArrayUnion([{
-                "stage": stage, "user": user_input,
-                "ai": ai_response, "time": datetime.datetime.now().isoformat()
-            }])
-        }, merge=True)
-    except Exception as e:
-        st.warning(f"저장 오류: {e}")
-
-
-# ── 중간 단계 응답 Data 풀 ────────────────────────────────────
-import random
-
-STAGE_DATA = {
-    "기분탐색": {
-        "responses": [
-            {"npc": "루나", "message": "오늘 네 마음이 전해졌어! 😊", "next_question": "어떤 이야기를 쓰고 싶어?"},
-            {"npc": "루나", "message": "그런 하루였구나, 잘 알겠어! 💙", "next_question": "오늘 기분으로 어떤 글을 써볼까?"},
-            {"npc": "루나", "message": "네 기분이 글에 담길 거야! ✨", "next_question": "이 느낌을 주제로 만들어볼까?"},
-        ],
-        "keywords_pool": [
-            ["오늘 있었던 재미있는 일", "친구와 함께한 순간", "갑자기 떠오른 상상", "마음속 작은 소원"],
-            ["학교에서 생긴 일", "집에서 있었던 일", "꿈속 이야기", "좋아하는 것에 대해"],
-            ["가족과의 추억", "혼자만의 시간", "신기한 경험", "미래에 대한 기대"],
-            ["계절의 변화", "맛있는 음식 이야기", "동물과의 만남", "여행 속 한 장면"],
-        ],
-    },
-    "주제헌팅": {
-        "responses": [
-            {"npc": "글벌레", "message": "멋진 주제야! 꼭 써봐! 📚", "next_question": "글의 첫 문장을 어떻게 시작할까?"},
-            {"npc": "글벌레", "message": "그 주제 정말 좋은데! 😄", "next_question": "서론에서 가장 먼저 말하고 싶은 건?"},
-            {"npc": "글벌레", "message": "훌륭한 선택이야, 시작해보자! 🎯", "next_question": "어떤 느낌으로 글을 시작해볼까?"},
-        ],
-        "keywords_pool": [
-            ["그날, 나는 문을 열었다", "오래전 기억이 떠올랐다", "처음에는 별것 아닌 줄 알았다", "그것은 작은 것에서 시작됐다"],
-            ["어느 날 갑자기", "내가 가장 좋아하는 것은", "잊을 수 없는 순간이 있다", "세상에서 가장 신기한 일"],
-            ["우리가 처음 만났을 때", "비가 내리던 그날", "눈을 떠 보니 모든 게 달라져 있었다", "작은 씨앗 하나가 있었다"],
-            ["나는 항상 궁금했다", "모험은 그렇게 시작됐다", "누군가 내 어깨를 두드렸다", "그 순간을 나는 절대 잊지 못한다"],
-        ],
-    },
-    "서론": {
-        "responses": [
-            {"npc": "도토리", "feedback": "서론이 아주 탄탄해! 🌟", "next_question": "이제 본론에서 어떤 일이 일어날까?"},
-            {"npc": "도토리", "feedback": "멋진 시작이야, 계속해봐! 🐿️", "next_question": "중간에 어떤 사건이나 생각을 담을까?"},
-            {"npc": "도토리", "feedback": "서론이 정말 생생하다! ✨", "next_question": "본론에서 가장 하고 싶은 말은 뭐야?"},
-        ],
-        "keywords_pool": [
-            ["긴장되는 순간이 찾아왔다", "예상치 못한 일이 벌어졌다", "그때 내가 한 선택은", "모두가 놀란 이유가 있었다"],
-            ["중요한 깨달음을 얻었다", "갈등이 시작되는 순간", "두 가지 길 앞에서 고민했다", "그 비밀이 드러나기 시작했다"],
-            ["시간이 흘러 모든 게 바뀌었다", "포기하려던 순간 기적이 일어났다", "혼자가 아니라는 걸 알았다", "작은 용기가 큰 변화를 만들었다"],
-            ["기쁨과 슬픔이 뒤섞였다", "마음속에 질문이 생겼다", "함께라서 가능했던 일", "끝이라고 생각했는데 새 시작이었다"],
-        ],
-    },
-    "본론": {
-        "responses": [
-            {"npc": "글벌레", "feedback": "본론이 풍성해졌어! 📖", "next_question": "이 이야기를 어떻게 마무리할까?"},
-            {"npc": "글벌레", "feedback": "이야기가 살아 숨 쉬는 것 같아! 💡", "next_question": "결론에서 전하고 싶은 메시지는?"},
-            {"npc": "글벌레", "feedback": "본론 내용이 알차다! 🌿", "next_question": "이 경험에서 무엇을 느꼈어?"},
-        ],
-        "keywords_pool": [
-            ["그 경험이 나를 바꿔놓았다", "돌아보면 그것이 시작이었다", "앞으로도 잊지 않을 것 같다", "그래서 나는 이렇게 생각한다"],
-            ["결국 중요한 건 하나였다", "마음속 깊이 남은 기억", "다음에는 더 잘할 수 있을 것 같다", "이 일을 통해 많이 배웠다"],
-            ["모든 것이 연결되어 있었다", "작은 것이 큰 의미였다", "함께여서 더 특별했다", "기억 속에 영원히 남을 장면"],
-            ["그 순간이 나를 성장시켰다", "언젠가 다시 해보고 싶다", "나만의 방식으로 해냈다", "힘들었지만 후회하지 않는다"],
-        ],
-    },
-    "결론": {
-        "responses": [
-            {"npc": "루나", "feedback": "결론까지 완벽해! 👏", "full_review": "처음부터 끝까지 너무 잘 썼어! 정말 대단해!",  "badge": "이야기 요정"},
-            {"npc": "루나", "feedback": "멋진 마무리야! 🌟",   "full_review": "생각과 감정이 잘 담긴 훌륭한 글이야!",         "badge": "글짓기 챔피언"},
-            {"npc": "루나", "feedback": "감동적인 결론이야! 💙", "full_review": "상상력이 넘치는 멋진 작품을 완성했어!",        "badge": "창작 마법사"},
-            {"npc": "루나", "feedback": "깔끔하게 마무리했어! ✨", "full_review": "꾸준히 써낸 네 노력이 빛나는 글이야!",       "badge": "도전 영웅"},
-        ],
-    },
+# 단계명 → 기승전결
+STAGE_QUESTIONS = {
+    "기": {"question": "주인공은 누구인가요? 🐰"},
+    "승": {"question": "어떤 신나는 일이 생겼나요? 🚀"},
+    "전": {"question": "갑자기 어떤 위기가 찾아왔나요? ⚡"},
+    "결": {"question": "어떻게 문제를 해결했나요? 🌈"},
 }
 
 
 def get_stage_response(stage, user_input=None):
-    """미리 정의된 data 풀에서 해당 단계의 응답을 랜덤 선택"""
-    data = STAGE_DATA.get(stage, {})
-    responses  = data.get("responses", [{}])
-    kw_pool    = data.get("keywords_pool", [[]])
+    """외부 JSON 파일에서 해당 단계의 NPC 응답과 키워드를 랜덤 선택"""
+    responses = NPC_RESPONSES.get(stage, [{}])
+    kw_pool   = KEYWORDS_POOL.get(stage, [[]])
     resp = random.choice(responses).copy()
-    resp["keywords"] = random.choice(kw_pool)
+    resp["keywords"] = random.choice(kw_pool) if kw_pool else []
     return resp
 
 
-def build_writing_prompt(context):
+def build_writing_request(context):
+    """Gemini API에 보낼 JSON 요청 객체를 반환"""
     fmt        = context.get("format", "소설")
     style      = context.get("style", "")
-    style_desc = WRITING_STYLES.get(fmt, {}).get(style, "")
-    style_line = f"\n- 문체: {style} — {style_desc}" if style_desc else ""
-    return f"""너는 초등학생의 글쓰기 아이디어를 바탕으로 완성도 높은 {fmt}을 쓰는 작가야.
-아래 기승전결 메모를 바탕으로 {NOVEL_LENGTH}자 내외의 완성된 {fmt}을 써줘.
+    age        = context.get("age", "")
+    age_custom = context.get("age_custom", "")
+    plot       = context.get("plot", "")
+    length     = context.get("length", 3000)
 
-[주제] {context.get("topic", "")}
-[서론] {context.get("intro", "")}
-[본론] {context.get("body", "")}
-[결론] {context.get("conclusion", "")}
+    # 작가 스타일 정보 (장르별 딕셔너리에서 조회)
+    style_info = AUTHOR_STYLES.get(fmt, {}).get(style, {})
+    role       = style_info.get("role", "경험 많은 작가")
+    tone       = style_info.get("tone", "")
+    desc       = style_info.get("desc", "")
+    style_line = f"- 작가 스타일: {style} / 역할: {role} / 톤: {tone} / 특징: {desc}" if style else ""
 
-조건:
-- 초등학생이 읽기 쉬운 언어 사용
-- {fmt} 형식에 맞게 작성{style_line}
-- 제목은 title 필드에 넣어줘 (# 없이 텍스트만)
-- {NOVEL_LENGTH}자 내외 (너무 짧거나 길지 않게)
-- 반드시 아래 JSON 형식으로만 출력하고 다른 텍스트는 절대 포함하지 마:
-{{"title": "제목", "content": "본문 전체"}}"""
+    # 대상 연령
+    age_target = age_custom if age == "직접 입력" and age_custom else age
+    age_line   = f"- 대상 독자: {age_target}" if age_target else "- 초등학생이 읽기 쉬운 언어 사용"
+
+    # 플롯 유형
+    plot_line  = f"- 플롯 유형: {plot}" if plot else ""
+
+    prompt_text = (
+        f"너는 {role}야.\n"
+        f"아래 기승전결 메모를 바탕으로 {length}자 내외의 완성된 {fmt}을 써줘.\n\n"
+        f"[주제] {context.get('topic', '')}\n"
+        f"[기(起) - 발단] {context.get('ki', '')}\n"
+        f"[승(承) - 전개] {context.get('seung', '')}\n"
+        f"[전(轉) - 위기] {context.get('jeon', '')}\n"
+        f"[결(結) - 결말] {context.get('gyeol', '')}\n\n"
+        f"조건:\n"
+        + (f"{style_line}\n" if style_line else "")
+        + f"{age_line}\n"
+        + (f"{plot_line}\n" if plot_line else "")
+        + f"- {fmt} 형식에 맞게 작성\n"
+        + f"- {length}자 내외"
+    )
+
+    request_body = {
+        "model": GEMINI_MODEL,
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "object",
+                "properties": {
+                    "title":   {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["title", "content"],
+            },
+            "maxOutputTokens": max(4096, context.get("length", 3000) // 2),
+        },
+    }
+    return request_body
 
 
-def _show_prompt_expander(prompt, expanded=True):
-    """오류 시 Gemini 직접 입력용 프롬프트 UI"""
-    with st.expander("📋 Gemini에 직접 입력할 프롬프트 보기", expanded=expanded):
+def _show_request_expander(request_body, expanded=True):
+    """오류 시 실제 API 요청 내용을 그대로 보여주는 UI"""
+    import json
+    with st.expander("📋 API 요청 내용 / Gemini에 직접 입력하기", expanded=expanded):
         c1 = THEME["primary_dk"]
         c2 = THEME["primary"]
         st.markdown(
             f'<div style="color:{c1};font-size:12px;margin-bottom:8px;">' +
-            '아래 내용을 복사해서 ' +
+            '아래는 실제로 전송된 API 요청이에요. 프롬프트 텍스트를 복사해서 ' +
             f'<a href="https://gemini.google.com" target="_blank" ' +
             f'style="color:{c2};font-weight:700;">gemini.google.com</a>' +
-            ' 에 붙여넣으면 직접 글을 받을 수 있어요! 🚀</div>',
+            ' 에 직접 붙여넣어 보세요! 🚀</div>',
             unsafe_allow_html=True
         )
-        st.code(prompt, language=None)
+        # 전체 요청 JSON
+        st.markdown(f'<div style="color:{c1};font-size:11px;font-weight:600;margin-top:8px;">🔷 전체 요청 (JSON)</div>', unsafe_allow_html=True)
+        st.code(json.dumps(request_body, ensure_ascii=False, indent=2), language="json")
+        # 프롬프트 텍스트만 따로 표시
+        try:
+            prompt_text = request_body["contents"][0]["parts"][0]["text"]
+            st.markdown(f'<div style="color:{c1};font-size:11px;font-weight:600;margin-top:8px;">🔶 프롬프트 텍스트만 보기</div>', unsafe_allow_html=True)
+            st.code(prompt_text, language=None)
+        except Exception:
+            pass
 
 
-def call_gemini_writing(prompt):
-    import json, re
+def call_gemini_writing(request_body):
+    import json
     try:
+        prompt_text = request_body["contents"][0]["parts"][0]["text"]
         response = get_gemini_client().models.generate_content(
-            model=GEMINI_MODEL, contents=prompt,
-            config={"max_output_tokens": 4096},
+            model   = request_body["model"],
+            contents= prompt_text,
+            config  = {
+                "response_mime_type": "application/json",
+                "response_schema": request_body["generationConfig"]["responseSchema"],
+                "max_output_tokens": request_body["generationConfig"]["maxOutputTokens"],
+            },
         )
         usage = getattr(response, "usage_metadata", None)
         if usage:
             st.session_state.token_in  = st.session_state.get("token_in",  0) + getattr(usage, "prompt_token_count",     0)
             st.session_state.token_out = st.session_state.get("token_out", 0) + getattr(usage, "candidates_token_count", 0)
 
-        text = response.text.strip()
-        # JSON 파싱 시도
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            title   = data.get("title", "")
-            content = data.get("content", "")
-            return f"# {title}\n\n{content}" if title else content
-        # JSON 실패 시 텍스트 그대로 반환
-        return text
+        data    = json.loads(response.text)
+        title   = data.get("title", "")
+        content = data.get("content", "")
+        return f"# {title}\n\n{content}" if title else content
 
     except Exception as e:
         err_str = str(e)
         is_quota = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
 
         if is_quota:
-            st.error("⏱️ API 사용량 한도를 초과했어요. 아래 프롬프트를 복사해서 Gemini에 직접 붙여넣어 보세요!")
+            st.error("⏱️ API 사용량 한도를 초과했어요. 아래 요청 내용을 확인하세요!")
         else:
             st.error(f"글 생성 오류: {e}")
 
-        _show_prompt_expander(prompt, expanded=True)
+        _show_request_expander(request_body, expanded=True)
         return ""
 
 
@@ -270,7 +200,7 @@ def init_session():
     defaults = {
         "stage_idx": 0,
         "chat_history": [],
-        "context": {"format": "", "style": ""},
+        "context": {"format": "", "style": "", "age": "", "plot": "", "length": 3000},
         "suggested_keywords": [],
         "input_text": "",
         "session_id": datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
@@ -302,13 +232,13 @@ def add_player_message(text):
 # ── 진행 바 ───────────────────────────────────────────────────
 def render_progress_bar():
     idx      = st.session_state.stage_idx
-    progress = min(min(idx, 5) / 5, 1.0)
+    progress = min(min(idx, 6) / 6, 1.0)
     fmt      = st.session_state.context.get("format", "")
     style    = st.session_state.context.get("style", "")
 
     # 단계 라벨 (Python으로 생성해서 f-string 중첩 방지)
     label_parts = []
-    display = list(zip(STAGE_ICONS[:5] + [STAGE_ICONS[6]], STAGE_LABELS[:5] + [STAGE_LABELS[6]]))
+    display = list(zip(STAGE_ICONS[:6] + [STAGE_ICONS[7]], STAGE_LABELS[:6] + [STAGE_LABELS[7]]))
     for i, (icon, label) in enumerate(display):
         color = THEME["primary"] if idx >= i else "#b0bec5"
         label_parts.append(
@@ -357,29 +287,31 @@ def render_progress_bar():
     )
 
 
-# ── 형식/문체 선택 패널 (오른쪽 컬럼 상단) ─────────────────
+# ── 설정 패널 (오른쪽 컬럼 상단) ───────────────────────────
 def render_setup_panel():
-    """
-    오른쪽 컬럼 '내 차례' 상단에 위치.
-    setup_open=True 이면 펼쳐져 있고, 확정 버튼 누르면 접힘.
-    형식/문체 선택 중에는 rerun해도 열린 상태 유지.
-    """
-    fmt   = st.session_state.context.get("format", "")
-    style = st.session_state.context.get("style", "")
+    ctx   = st.session_state.context
+    fmt   = ctx.get("format", "")
+    style = ctx.get("style", "")
+    age   = ctx.get("age", "")
+    plot  = ctx.get("plot", "")
+    length_label = next((k for k, v in TARGET_LENGTHS.items() if v == ctx.get("length", 3000)), "")
 
-    # expander 라벨 — 선택 완료 여부에 따라 다르게 표시
+    # expander 라벨
     if fmt:
         fmt_icon = WRITING_FORMATS[fmt][0]
-        label = f"🎨 설정완료: {fmt_icon} {fmt}" + (f" · {style}" if style else "")
+        parts = [f"{fmt_icon} {fmt}"]
+        if style: parts.append(style)
+        if age:   parts.append(age)
+        if plot:  parts.append(plot)
+        label = "🎨 설정완료: " + " · ".join(parts)
     else:
-        label = "🎨 글쓰기 형식과 문체를 선택해요"
+        label = "🎨 글쓰기 설정을 해봐요"
 
     with st.expander(label, expanded=st.session_state.setup_open):
 
-        # ── Step 1: 형식 ─────────────────────────────────────
+        # ── Step 1: 형식 ──────────────────────────────────────
         st.markdown(
-            f'<div style="color:{THEME["primary"]};font-size:12px;'
-            f'font-weight:600;margin-bottom:6px;">📌 형식 선택</div>',
+            f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-bottom:6px;">📌 형식 선택</div>',
             unsafe_allow_html=True
         )
         fmt_cols = st.columns(4)
@@ -388,40 +320,93 @@ def render_setup_panel():
                 is_sel = fmt == f_name
                 btn_label = f"{f_icon} {f_name} ✅" if is_sel else f"{f_icon} {f_name}"
                 if st.button(btn_label, key=f"fmt_{f_name}", use_container_width=True):
-                    st.session_state.context["format"] = f_name
-                    st.session_state.context["style"]  = ""
-                    st.session_state.setup_open = True   # 형식 클릭 후에도 열린 상태 유지
+                    ctx["format"] = f_name
+                    ctx["style"]  = ""
+                    st.session_state.setup_open = True
                     st.rerun()
                 st.markdown(
-                    f'<div style="text-align:center;color:{THEME["text_muted"]};'
-                    f'font-size:10px;margin-top:-4px;">{f_desc}</div>',
+                    f'<div style="text-align:center;color:{THEME["text_muted"]};font-size:10px;margin-top:-4px;">{f_desc}</div>',
                     unsafe_allow_html=True
                 )
 
-        # ── Step 2: 문체 ─────────────────────────────────────
+        # ── Step 2: 작가 스타일 (형식 선택 후 해당 장르 작가만 표시) ──
+        st.markdown(
+            f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-top:12px;margin-bottom:6px;">' +
+            f'🖋️ 작가 스타일 <span style="color:{THEME["text_muted"]};font-size:10px;font-weight:400;">(선택 안 해도 됩니다)</span></div>',
+            unsafe_allow_html=True
+        )
         if fmt:
+            genre_styles = AUTHOR_STYLES.get(fmt, {})
+            if genre_styles:
+                # 형식이 바뀌면 스타일 초기화
+                if style and style not in genre_styles:
+                    ctx["style"] = ""
+                    style = ""
+                s_cols = st.columns(4)
+                for i, (s_name, info) in enumerate(genre_styles.items()):
+                    with s_cols[i % 4]:
+                        is_sel = style == s_name
+                        btn_label = f"{s_name} ✅" if is_sel else s_name
+                        if st.button(btn_label, key=f"sty_{fmt}_{s_name}", use_container_width=True):
+                            ctx["style"] = "" if is_sel else s_name
+                            st.session_state.setup_open = True
+                            st.rerun()
+                        st.markdown(
+                            f'<div style="text-align:center;color:{THEME["text_muted"]};font-size:10px;margin-top:-4px;line-height:1.3;">{info["tone"]}</div>',
+                            unsafe_allow_html=True
+                        )
+        else:
             st.markdown(
-                f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;'
-                f'margin-top:12px;margin-bottom:6px;">'
-                f'🖋️ 문체 선택 '
-                f'<span style="color:{THEME["text_muted"]};font-size:10px;font-weight:400;">'
-                f'(선택 안 해도 됩니다)</span></div>',
+                f'<div style="color:{THEME["text_muted"]};font-size:11px;">📌 먼저 형식을 선택하면 해당 장르 작가가 표시돼요!</div>',
                 unsafe_allow_html=True
             )
-            style_cols = st.columns(4)
-            for i, (s_name, s_desc) in enumerate(WRITING_STYLES.get(fmt, {}).items()):
-                with style_cols[i]:
-                    is_sel = style == s_name
-                    btn_label = f"{s_name} ✅" if is_sel else s_name
-                    if st.button(btn_label, key=f"sty_{s_name}", use_container_width=True):
-                        st.session_state.context["style"] = "" if is_sel else s_name
-                        st.session_state.setup_open = True   # 문체 클릭 후에도 열린 상태 유지
-                        st.rerun()
-                    st.markdown(
-                        f'<div style="text-align:center;color:{THEME["text_muted"]};'
-                        f'font-size:10px;margin-top:-4px;line-height:1.3;">{s_desc}</div>',
-                        unsafe_allow_html=True
-                    )
+
+        # ── Step 3: 대상 연령 ─────────────────────────────────
+        st.markdown(
+            f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-top:12px;margin-bottom:6px;">👦 대상 연령</div>',
+            unsafe_allow_html=True
+        )
+        age_cols = st.columns(5)
+        for i, a in enumerate(TARGET_AGES):
+            with age_cols[i]:
+                is_sel = age == a
+                if st.button(f"{a} ✅" if is_sel else a, key=f"age_{a}", use_container_width=True):
+                    ctx["age"] = "" if is_sel else a
+                    st.session_state.setup_open = True
+                    st.rerun()
+        # 직접 입력
+        if age == "직접 입력":
+            custom_age = st.text_input("연령 직접 입력", value=ctx.get("age_custom", ""), placeholder="예: 8세, 중학생", key="age_custom_input")
+            if custom_age:
+                ctx["age_custom"] = custom_age
+
+        # ── Step 4: 플롯 유형 ─────────────────────────────────
+        st.markdown(
+            f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-top:12px;margin-bottom:6px;">📐 플롯 유형 <span style="color:{THEME["text_muted"]};font-size:10px;font-weight:400;">(선택 안 해도 됩니다)</span></div>',
+            unsafe_allow_html=True
+        )
+        plot_cols = st.columns(5)
+        for i, p in enumerate(PLOT_TYPES):
+            with plot_cols[i]:
+                is_sel = plot == p
+                if st.button(f"{p} ✅" if is_sel else p, key=f"plot_{p}", use_container_width=True):
+                    ctx["plot"] = "" if is_sel else p
+                    st.session_state.setup_open = True
+                    st.rerun()
+
+        # ── Step 5: 글 길이 ───────────────────────────────────
+        st.markdown(
+            f'<div style="color:{THEME["primary"]};font-size:12px;font-weight:600;margin-top:12px;margin-bottom:6px;">📏 글 길이</div>',
+            unsafe_allow_html=True
+        )
+        len_cols = st.columns(4)
+        for i, (l_name, l_val) in enumerate(TARGET_LENGTHS.items()):
+            with len_cols[i]:
+                is_sel = ctx.get("length", 3000) == l_val
+                if st.button(f"{l_name} ✅" if is_sel else l_name, key=f"len_{l_name}", use_container_width=True):
+                    ctx["length"] = l_val
+                    st.session_state.setup_open = True
+                    st.rerun()
 
         # ── 확정 버튼 ─────────────────────────────────────────
         if fmt:
@@ -429,7 +414,7 @@ def render_setup_panel():
             fmt_icon = WRITING_FORMATS[fmt][0]
             btn_txt  = f"✅ {fmt_icon} {fmt}" + (f" · {style}" if style else "") + " 로 시작!"
             if st.button(btn_txt, use_container_width=True, type="primary", key="setup_confirm"):
-                st.session_state.setup_open = False  # 확정 버튼 누르면 닫힘
+                st.session_state.setup_open = False
                 st.rerun()
 
 
@@ -556,6 +541,8 @@ def process_stage(user_input):
     # 중간 단계: data 풀에서 즉시 선택 (API 호출 없음)
     result = get_stage_response(stage, user_input)
 
+    stage_map = {"기분탐색": 1, "주제헌팅": 2, "기": 3, "승": 4, "전": 5, "결": 6}
+
     if stage == "기분탐색":
         context["mood"] = user_input
         add_npc_message(result.get("npc", "루나"), result.get("message", ""),
@@ -563,32 +550,36 @@ def process_stage(user_input):
         st.session_state.stage_idx = 1
 
     elif stage == "주제헌팅":
-        # 주제는 사용자 입력을 그대로 사용
-        topic = user_input
-        context["topic"] = topic
+        context["topic"] = user_input
         add_npc_message(result.get("npc", "글벌레"),
-                        f"주제 확정! 『{topic}』 {result.get('message', '')}",
+                        f"주제 확정! 『{user_input}』 {result.get('message', '')}",
                         result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 2
 
-    elif stage == "서론":
-        context["intro"] = user_input
-        add_npc_message(result.get("npc", "도토리"), result.get("feedback", "서론 완성!"),
+    elif stage == "기":
+        context["ki"] = user_input
+        add_npc_message(result.get("npc", "도토리"), result.get("feedback", "기(起) 완성!"),
                         result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 3
 
-    elif stage == "본론":
-        context["body"] = user_input
-        add_npc_message(result.get("npc", "글벌레"), result.get("feedback", "본론 완성!"),
+    elif stage == "승":
+        context["seung"] = user_input
+        add_npc_message(result.get("npc", "글벌레"), result.get("feedback", "승(承) 완성!"),
                         result.get("keywords", []), result.get("next_question", ""))
         st.session_state.stage_idx = 4
 
-    elif stage == "결론":
-        context["conclusion"] = user_input
+    elif stage == "전":
+        context["jeon"] = user_input
+        add_npc_message(result.get("npc", "도토리"), result.get("feedback", "전(轉) 완성!"),
+                        result.get("keywords", []), result.get("next_question", ""))
+        st.session_state.stage_idx = 5
+
+    elif stage == "결":
+        context["gyeol"] = user_input
         context["badge"] = result.get("badge", "글짓기 영웅")
         add_npc_message(result.get("npc", "루나"),
                         f"🎉 기승전결 완성! {result.get('full_review', '')}\n이제 AI가 글을 완성해줄게요! ✨")
-        st.session_state.stage_idx = 5
+        st.session_state.stage_idx = 6
 
     try:
         save_to_firestore(st.session_state.session_id, stage, user_input, str(result))
@@ -600,21 +591,28 @@ def process_stage(user_input):
 def generate_writing():
     if st.session_state.writing_done:
         return
-    fmt    = st.session_state.context.get("format", "소설")
-    prompt = build_writing_prompt(st.session_state.context)
-    with st.spinner(f"📖 AI가 {NOVEL_LENGTH}자 {fmt}을 쓰고 있어요..."):
-        text = call_gemini_writing(prompt)
+    fmt     = st.session_state.context.get("format", "소설")
+    length  = st.session_state.context.get("length", 3000)
+    request = build_writing_request(st.session_state.context)
+    with st.spinner(f"📖 AI가 {length:,}자 {fmt}을 쓰고 있어요..."):
+        text = call_gemini_writing(request)
     if text:
         st.session_state.writing_text = text
         st.session_state.writing_done = True
         save_to_firestore(st.session_state.session_id, "최종글", "자동생성", text[:500])
-        st.session_state.stage_idx = 6
+        st.session_state.stage_idx = 7
         st.rerun()
     else:
         # call_gemini_writing 내부에서 이미 오류 메시지+프롬프트 표시됨
-        # 추가로 재시도 버튼만 표시
-        if st.button("🔄 다시 시도하기", use_container_width=True):
-            st.rerun()
+        col_new, col_retry = st.columns(2)
+        with col_new:
+            if st.button("✏️ 새로운 글짓기", use_container_width=True):
+                for k in list(st.session_state.keys()):
+                    del st.session_state[k]
+                st.rerun()
+        with col_retry:
+            if st.button("🔄 다시 시도하기", use_container_width=True, type="primary"):
+                st.rerun()
 
 
 # ── 완성 화면 ─────────────────────────────────────────────────
@@ -658,10 +656,11 @@ def render_completion():
     col_memo, col_writing = st.columns([1, 1.6])
     with col_memo:
         rows = [
-            ("📌 주제", "#26a69a",        ctx.get("topic","")),
-            ("📖 서론", THEME["primary"],  ctx.get("intro","")),
-            ("✍️ 본론", THEME["fire"],     ctx.get("body","")),
-            ("🏁 결론", THEME["primary_dk"], ctx.get("conclusion","")),
+            ("📌 주제",     "#26a69a",          ctx.get("topic","")),
+            ("🌱 기(起)",   THEME["primary"],    ctx.get("ki","")),
+            ("🚀 승(承)",   THEME["fire"],       ctx.get("seung","")),
+            ("⚡ 전(轉)",   "#8e24aa",           ctx.get("jeon","")),
+            ("🌈 결(結)",   THEME["primary_dk"], ctx.get("gyeol","")),
         ]
         rows_html = ""
         for label, color, val in rows:
@@ -746,12 +745,12 @@ def main():
     render_progress_bar()
 
     # 완성
-    if st.session_state.stage_idx >= 6:
+    if st.session_state.stage_idx >= 7:
         render_completion()
         return
 
     # 글 자동 생성
-    if st.session_state.stage_idx == 5:
+    if st.session_state.stage_idx == 6:
         fmt = st.session_state.context.get("format","소설")
         st.markdown(
             f'<div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;'
@@ -771,9 +770,10 @@ def main():
         fmt   = st.session_state.context.get("format","소설")
         style = st.session_state.context.get("style","")
         style_msg = f" {style}로" if style else ""
+        length = st.session_state.context.get("length", 3000)
         add_npc_message(
             "루나",
-            f"안녕! 나는 루나야 🧝‍♀️ 오늘 {fmt}을{style_msg} 함께 써보자!",
+            f"안녕! 나는 루나야 🧝‍♀️ 오늘 {fmt}을{style_msg} 함께 써보자! ({length:,}자)",
             ["오늘 정말 신났어요!", "좋은 일이 있었어요", "조금 피곤해요", "그냥 평범한 하루예요"],
             "오늘 기분이 어때? 또는 오늘 있었던 재미있는 일을 말해줘!"
         )
@@ -829,10 +829,11 @@ def main():
         char_limit = CHAR_LIMITS.get(stage, 100)
         placeholders = {
             "기분탐색": "오늘 기분이나 있었던 일을 써봐요!",
-            "주제헌팅": "어떤 주제로 글을 쓰고 싶어요?",
-            "서론":     "글의 시작을 써봐요!",
-            "본론":     "본론에서 하고 싶은 이야기!",
-            "결론":     "글을 어떻게 마무리할까요?",
+            "주제헌팅": "어떤 이야기를 쓰고 싶어요?",
+            "기":       STAGE_QUESTIONS["기"]["question"],
+            "승":       STAGE_QUESTIONS["승"]["question"],
+            "전":       STAGE_QUESTIONS["전"]["question"],
+            "결":       STAGE_QUESTIONS["결"]["question"],
         }
 
         user_input = st.text_area(
@@ -847,7 +848,7 @@ def main():
 
         col_send, col_clear = st.columns([4, 1])
         with col_send:
-            send_label = "🚀 전송하기" if stage != "결론" else "🎉 글 완성하기!"
+            send_label = "🚀 전송하기" if stage != "결" else "🎉 글 완성하기!"
             if st.button(send_label, use_container_width=True, type="primary"):
                 cleaned = user_input.strip()
                 if not st.session_state.context.get("format"):
