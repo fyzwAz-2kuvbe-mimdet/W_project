@@ -27,27 +27,30 @@ TARGET_LENGTHS = {
 
 # ── 외부 데이터 파일 로딩 ────────────────────────────────────
 import json
-import os
+from pathlib import Path
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Streamlit Cloud / 로컬 모두 동작하는 경로
+DATA_DIR = Path(__file__).parent / "data"
+
+def _load_json(filename):
+    path = DATA_DIR / filename
+    if not path.exists():
+        st.error(f"데이터 파일을 찾을 수 없어요: {path}")
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 @st.cache_data
 def load_author_styles():
-    path = os.path.join(DATA_DIR, "author_styles.json")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return _load_json("author_styles.json")
 
 @st.cache_data
 def load_npc_responses():
-    path = os.path.join(DATA_DIR, "npc_responses.json")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return _load_json("npc_responses.json")
 
 @st.cache_data
 def load_keywords():
-    path = os.path.join(DATA_DIR, "keywords.json")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return _load_json("keywords.json")
 
 # 앱 시작 시 로딩
 AUTHOR_STYLES  = load_author_styles()
