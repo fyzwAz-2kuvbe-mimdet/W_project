@@ -191,77 +191,107 @@ def get_stage_response(stage, user_input=None):
     return resp
 
 
-def build_writing_prompt(context):
+def build_writing_request(context):
+    """Gemini API에 보낼 JSON 요청 객체를 반환"""
+    import json
     fmt        = context.get("format", "소설")
     style      = context.get("style", "")
     style_desc = WRITING_STYLES.get(fmt, {}).get(style, "")
-    style_line = f"\n- 문체: {style} — {style_desc}" if style_desc else ""
-    return f"""너는 초등학생의 글쓰기 아이디어를 바탕으로 완성도 높은 {fmt}을 쓰는 작가야.
-아래 기승전결 메모를 바탕으로 {NOVEL_LENGTH}자 내외의 완성된 {fmt}을 써줘.
+    style_line = f"문체: {style} — {style_desc}" if style_desc else ""
 
-[주제] {context.get("topic", "")}
-[서론] {context.get("intro", "")}
-[본론] {context.get("body", "")}
-[결론] {context.get("conclusion", "")}
+    prompt_text = (
+        f"너는 초등학생의 글쓰기 아이디어를 바탕으로 완성도 높은 {fmt}을 쓰는 작가야.\n"
+        f"아래 기승전결 메모를 바탕으로 {NOVEL_LENGTH}자 내외의 완성된 {fmt}을 써줘.\n\n"
+        f"[주제] {context.get('topic', '')}\n"
+        f"[서론] {context.get('intro', '')}\n"
+        f"[본론] {context.get('body', '')}\n"
+        f"[결론] {context.get('conclusion', '')}\n\n"
+        f"조건:\n"
+        f"- 초등학생이 읽기 쉬운 언어 사용\n"
+        f"- {fmt} 형식에 맞게 작성\n"
+        + (f"- {style_line}\n" if style_line else "")
+        + f"- {NOVEL_LENGTH}자 내외\n"
+        f"- title(제목)과 content(본문)를 JSON으로 반환"
+    )
 
-조건:
-- 초등학생이 읽기 쉬운 언어 사용
-- {fmt} 형식에 맞게 작성{style_line}
-- 제목은 title 필드에 넣어줘 (# 없이 텍스트만)
-- {NOVEL_LENGTH}자 내외 (너무 짧거나 길지 않게)
-- 반드시 아래 JSON 형식으로만 출력하고 다른 텍스트는 절대 포함하지 마:
-{{"title": "제목", "content": "본문 전체"}}"""
+    request_body = {
+        "model": GEMINI_MODEL,
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "object",
+                "properties": {
+                    "title":   {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["title", "content"],
+            },
+            "maxOutputTokens": 4096,
+        },
+    }
+    return request_body
 
 
-def _show_prompt_expander(prompt, expanded=True):
-    """오류 시 Gemini 직접 입력용 프롬프트 UI"""
-    with st.expander("📋 Gemini에 직접 입력할 프롬프트 보기", expanded=expanded):
+def _show_request_expander(request_body, expanded=True):
+    """오류 시 실제 API 요청 내용을 그대로 보여주는 UI"""
+    import json
+    with st.expander("📋 API 요청 내용 / Gemini에 직접 입력하기", expanded=expanded):
         c1 = THEME["primary_dk"]
         c2 = THEME["primary"]
         st.markdown(
             f'<div style="color:{c1};font-size:12px;margin-bottom:8px;">' +
-            '아래 내용을 복사해서 ' +
+            '아래는 실제로 전송된 API 요청이에요. 프롬프트 텍스트를 복사해서 ' +
             f'<a href="https://gemini.google.com" target="_blank" ' +
             f'style="color:{c2};font-weight:700;">gemini.google.com</a>' +
-            ' 에 붙여넣으면 직접 글을 받을 수 있어요! 🚀</div>',
+            ' 에 직접 붙여넣어 보세요! 🚀</div>',
             unsafe_allow_html=True
         )
-        st.code(prompt, language=None)
+        # 전체 요청 JSON
+        st.markdown(f'<div style="color:{c1};font-size:11px;font-weight:600;margin-top:8px;">🔷 전체 요청 (JSON)</div>', unsafe_allow_html=True)
+        st.code(json.dumps(request_body, ensure_ascii=False, indent=2), language="json")
+        # 프롬프트 텍스트만 따로 표시
+        try:
+            prompt_text = request_body["contents"][0]["parts"][0]["text"]
+            st.markdown(f'<div style="color:{c1};font-size:11px;font-weight:600;margin-top:8px;">🔶 프롬프트 텍스트만 보기</div>', unsafe_allow_html=True)
+            st.code(prompt_text, language=None)
+        except Exception:
+            pass
 
 
-def call_gemini_writing(prompt):
-    import json, re
+def call_gemini_writing(request_body):
+    import json
     try:
+        prompt_text = request_body["contents"][0]["parts"][0]["text"]
         response = get_gemini_client().models.generate_content(
-            model=GEMINI_MODEL, contents=prompt,
-            config={"max_output_tokens": 4096},
+            model   = request_body["model"],
+            contents= prompt_text,
+            config  = {
+                "response_mime_type": "application/json",
+                "response_schema": request_body["generationConfig"]["responseSchema"],
+                "max_output_tokens": request_body["generationConfig"]["maxOutputTokens"],
+            },
         )
         usage = getattr(response, "usage_metadata", None)
         if usage:
             st.session_state.token_in  = st.session_state.get("token_in",  0) + getattr(usage, "prompt_token_count",     0)
             st.session_state.token_out = st.session_state.get("token_out", 0) + getattr(usage, "candidates_token_count", 0)
 
-        text = response.text.strip()
-        # JSON 파싱 시도
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            title   = data.get("title", "")
-            content = data.get("content", "")
-            return f"# {title}\n\n{content}" if title else content
-        # JSON 실패 시 텍스트 그대로 반환
-        return text
+        data    = json.loads(response.text)
+        title   = data.get("title", "")
+        content = data.get("content", "")
+        return f"# {title}\n\n{content}" if title else content
 
     except Exception as e:
         err_str = str(e)
         is_quota = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
 
         if is_quota:
-            st.error("⏱️ API 사용량 한도를 초과했어요. 아래 프롬프트를 복사해서 Gemini에 직접 붙여넣어 보세요!")
+            st.error("⏱️ API 사용량 한도를 초과했어요. 아래 요청 내용을 확인하세요!")
         else:
             st.error(f"글 생성 오류: {e}")
 
-        _show_prompt_expander(prompt, expanded=True)
+        _show_request_expander(request_body, expanded=True)
         return ""
 
 
@@ -600,10 +630,10 @@ def process_stage(user_input):
 def generate_writing():
     if st.session_state.writing_done:
         return
-    fmt    = st.session_state.context.get("format", "소설")
-    prompt = build_writing_prompt(st.session_state.context)
+    fmt     = st.session_state.context.get("format", "소설")
+    request = build_writing_request(st.session_state.context)
     with st.spinner(f"📖 AI가 {NOVEL_LENGTH}자 {fmt}을 쓰고 있어요..."):
-        text = call_gemini_writing(prompt)
+        text = call_gemini_writing(request)
     if text:
         st.session_state.writing_text = text
         st.session_state.writing_done = True
