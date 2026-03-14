@@ -25,270 +25,50 @@ TARGET_LENGTHS = {
     "장편 (약 10,000자)":   10000,
 }
 
-AUTHOR_STYLES = {
-    "소설": {
-        "김영하": {
-            "role": "냉철한 시선의 한국 현대 소설가",
-            "tone": "건조하고 세련됨, 지적 냉소",
-            "desc": "일상의 낯설게 하기, 인물의 심리적 갈등과 날카로운 관찰",
-        },
-        "무라카미 하루키": {
-            "role": "일상과 비현실을 넘나드는 일본 소설가",
-            "tone": "잔잔하고 몽환적, 고독한 서정",
-            "desc": "음악·음식 등 감각적 디테일, 고독한 주인공, 비현실적 요소",
-        },
-        "제인 오스틴": {
-            "role": "클래식하고 위트 있는 근대 소설가",
-            "tone": "우아한 풍자, 예리한 사회 관찰",
-            "desc": "격식 있는 말투, 인물 간 오해와 화해, 미묘한 감정 묘사",
-        },
-        "가브리엘 가르시아 마르케스": {
-            "role": "마술적 사실주의의 대가",
-            "tone": "몽환적이고 서사적, 신화적 분위기",
-            "desc": "현실과 환상의 경계 허물기, 풍부한 가족·마을 서사",
-        },
-    },
-    "시": {
-        "윤동주": {
-            "role": "순수하고 저항적인 한국 서정 시인",
-            "tone": "맑고 성찰적, 슬프고 아름다움",
-            "desc": "별·하늘·바람 등 자연 이미지, 자아 성찰과 시대적 부끄러움",
-        },
-        "파블로 네루다": {
-            "role": "열정과 감각의 칠레 시인",
-            "tone": "열정적이고 육감적, 강렬한 이미지",
-            "desc": "사랑과 자연을 감각적으로 묘사, 대담한 비유와 은유",
-        },
-        "에밀리 디킨슨": {
-            "role": "내면 세계를 탐구한 미국 시인",
-            "tone": "압축적이고 신비로움, 독특한 리듬",
-            "desc": "짧은 시행, 대시(-) 활용, 죽음·영원·자연을 독창적으로 표현",
-        },
-        "김소월": {
-            "role": "한국의 한(恨)과 정서를 담은 시인",
-            "tone": "애절하고 민요적, 그리움과 이별",
-            "desc": "민요 리듬, 여성적 화자, 이별과 그리움의 정서",
-        },
-    },
-    "시나리오": {
-        "봉준호": {
-            "role": "장르를 초월하는 한국 영화감독·작가",
-            "tone": "블랙코미디와 사회 비판, 예상 밖 반전",
-            "desc": "계층 갈등, 일상 속 비극, 장르 혼합과 충격적 반전",
-        },
-        "크리스토퍼 놀란": {
-            "role": "시간과 현실을 실험하는 영국 감독·작가",
-            "tone": "철학적이고 웅장함, 긴장감 있는 구조",
-            "desc": "비선형 시간 구조, 정체성·기억·현실 탐구, 치밀한 복선",
-        },
-        "노희경": {
-            "role": "인간의 감정을 세밀히 그리는 한국 드라마 작가",
-            "tone": "따뜻하고 섬세함, 진솔한 대사",
-            "desc": "인물 감정 중심 대화, 평범한 일상 속 깊은 울림",
-        },
-        "아론 소킨": {
-            "role": "빠르고 지적인 대사의 미국 각본가",
-            "tone": "속도감 있고 위트 넘침, 논쟁적",
-            "desc": "워킹 앤드 토킹, 중첩 대사, 이상주의와 현실의 충돌",
-        },
-    },
-    "에세이": {
-        "몽테뉴": {
-            "role": "근대 에세이의 창시자",
-            "tone": "자유롭고 솔직함, 자기 성찰적",
-            "desc": "일상의 사소한 것에서 철학 발견, 형식 없는 자유로운 사유",
-        },
-        "이슬아": {
-            "role": "매일 글을 쓰는 한국 에세이스트",
-            "tone": "솔직하고 씩씩함, 구체적이고 다정함",
-            "desc": "1인칭 고백체, 몸의 감각과 구체적 사물 묘사, 담백한 감동",
-        },
-        "버지니아 울프": {
-            "role": "의식의 흐름을 개척한 영국 작가",
-            "tone": "섬세하고 시적, 내면 탐구",
-            "desc": "의식의 흐름, 감각적 묘사, 여성·예술·일상에 대한 통찰",
-        },
-        "이어령": {
-            "role": "한국 지성을 대표하는 문화 비평가·작가",
-            "tone": "통찰력 있고 풍부함, 문화적 상상력",
-            "desc": "풍부한 비유와 역설, 동서양 문화 비교, 창의적 언어 유희",
-        },
-    },
-}
+# ── 외부 데이터 파일 로딩 ────────────────────────────────────
+import json
+import os
 
-# 단계명 → 기승전결로 변경
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+@st.cache_data
+def load_author_styles():
+    path = os.path.join(DATA_DIR, "author_styles.json")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+@st.cache_data
+def load_npc_responses():
+    path = os.path.join(DATA_DIR, "npc_responses.json")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+@st.cache_data
+def load_keywords():
+    path = os.path.join(DATA_DIR, "keywords.json")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+# 앱 시작 시 로딩
+AUTHOR_STYLES  = load_author_styles()
+NPC_RESPONSES  = load_npc_responses()
+KEYWORDS_POOL  = load_keywords()
+
+# 단계명 → 기승전결
 STAGE_QUESTIONS = {
-    "기": {
-        "question": "주인공은 누구인가요? 🐰",
-        "suggestions": ["토끼 소녀 달이", "용감한 소년 하늘이", "작은 마법사 별이", "강아지 친구 뭉치"],
-    },
-    "승": {
-        "question": "어떤 신나는 일이 생겼나요? 🚀",
-        "suggestions": ["보물 지도를 발견했어요", "무서운 괴물이 나타났어요", "새로운 친구를 만났어요", "마법 문을 발견했어요"],
-    },
-    "전": {
-        "question": "갑자기 어떤 위기가 찾아왔나요? ⚡",
-        "suggestions": ["친구가 위험에 빠졌어요", "보물이 사라졌어요", "길을 잃어버렸어요", "마법이 풀려버렸어요"],
-    },
-    "결": {
-        "question": "어떻게 문제를 해결했나요? 🌈",
-        "suggestions": ["모두 힘을 합쳐 해결했어요", "마법의 힘으로 이겼어요", "용기를 내서 해냈어요", "친구의 도움으로 성공했어요"],
-    },
-}
-
-# ── UI 테마 ───────────────────────────────────────────────────
-THEME = {
-    "bg":         "#f0f8ff",
-    "card":       "#ffffff",
-    "card_bg":    "#e3f2fd",
-    "border":     "#90caf9",
-    "primary":    "#2196f3",
-    "primary_dk": "#1565c0",
-    "text":       "#1a237e",
-    "text_muted": "#90caf9",
-    "danger":     "#ef5350",
-    "fire":       "#ff7043",
-}
-
-# ── 글쓰기 형식 & 문체 ────────────────────────────────────────
-WRITING_FORMATS = {
-    "소설":     ("📖", "인물과 사건이 있는 이야기"),
-    "에세이":   ("✏️", "내 생각과 경험을 솔직하게"),
-    "시":       ("🌸", "짧고 아름다운 언어로"),
-    "시나리오": ("🎬", "대사와 장면으로 표현"),
-}
-
-# WRITING_STYLES → AUTHOR_STYLES로 통합 (상단 정의 참조)
-
-# ── 단계 정의 ─────────────────────────────────────────────────
-STAGES       = ["기분탐색", "주제헌팅", "기", "승", "전", "결", "글생성", "완성"]
-STAGE_ICONS  = ["💬", "🎯", "🌱", "🚀", "⚡", "🌈", "✨", "🌟"]
-STAGE_LABELS = ["기분 탐색", "주제 헌팅", "기(起)", "승(承)", "전(轉)", "결(結)", "글 생성", "완성!"]
-
-NPC_CHARACTERS = {
-    "루나":   {"emoji": "🧝‍♀️", "color": "#2196f3", "role": "안내자"},
-    "도토리": {"emoji": "🐿️",  "color": "#ff7043", "role": "응원단"},
-    "글벌레": {"emoji": "📚",   "color": "#26a69a", "role": "박사"},
-}
-
-CHAR_LIMITS = {
-    "기분탐색": 50, "주제헌팅": 30,
-    "기": 100, "승": 150, "전": 150, "결": 100,
-}
-
-
-# ── Firebase ──────────────────────────────────────────────────
-@st.cache_resource
-def init_firebase():
-    if firebase_admin._apps:
-        return firebase_admin.get_app()
-    cfg = dict(st.secrets["firebase"])
-    cfg["private_key"] = cfg["private_key"].replace("\\n", "\n")
-    return firebase_admin.initialize_app(credentials.Certificate(cfg))
-
-@st.cache_resource
-def get_db():
-    init_firebase()
-    return firestore.client()
-
-@st.cache_resource
-def get_gemini_client():
-    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-def save_to_firestore(session_id, stage, user_input, ai_response):
-    try:
-        get_db().collection("stories").document(session_id).set({
-            "session_id": session_id,
-            "last_updated": datetime.datetime.now(),
-            "stage": stage,
-            "history": firestore.ArrayUnion([{
-                "stage": stage, "user": user_input,
-                "ai": ai_response, "time": datetime.datetime.now().isoformat()
-            }])
-        }, merge=True)
-    except Exception as e:
-        st.warning(f"저장 오류: {e}")
-
-
-# ── 중간 단계 응답 Data 풀 ────────────────────────────────────
-import random
-
-STAGE_DATA = {
-    "기분탐색": {
-        "responses": [
-            {"npc": "루나", "message": "오늘 네 마음이 전해졌어! 😊", "next_question": "어떤 이야기를 쓰고 싶어?"},
-            {"npc": "루나", "message": "그런 하루였구나, 잘 알겠어! 💙", "next_question": "오늘 기분으로 어떤 글을 써볼까?"},
-            {"npc": "루나", "message": "네 기분이 글에 담길 거야! ✨", "next_question": "이 느낌을 주제로 만들어볼까?"},
-        ],
-        "keywords_pool": [
-            ["오늘 있었던 재미있는 일", "친구와 함께한 순간", "갑자기 떠오른 상상", "마음속 작은 소원"],
-            ["학교에서 생긴 일", "집에서 있었던 일", "꿈속 이야기", "좋아하는 것에 대해"],
-            ["가족과의 추억", "혼자만의 시간", "신기한 경험", "미래에 대한 기대"],
-            ["계절의 변화", "맛있는 음식 이야기", "동물과의 만남", "여행 속 한 장면"],
-        ],
-    },
-    "주제헌팅": {
-        "responses": [
-            {"npc": "글벌레", "message": "멋진 주제야! 꼭 써봐! 📚", "next_question": STAGE_QUESTIONS["기"]["question"]},
-            {"npc": "글벌레", "message": "그 주제 정말 좋은데! 😄",  "next_question": STAGE_QUESTIONS["기"]["question"]},
-            {"npc": "글벌레", "message": "훌륭한 선택이야! 🎯",       "next_question": STAGE_QUESTIONS["기"]["question"]},
-        ],
-        "keywords_pool": [
-            ["토끼 소녀 달이", "용감한 소년 하늘이", "작은 마법사 별이", "강아지 친구 뭉치"],
-            ["꼬마 요리사 뽀미", "탐험가 소녀 나래", "수줍은 소년 구름이", "똑똑한 고양이 냥이"],
-        ],
-    },
-    "기": {
-        "responses": [
-            {"npc": "도토리", "feedback": "주인공이 생생하게 느껴져! 🌱", "next_question": STAGE_QUESTIONS["승"]["question"]},
-            {"npc": "도토리", "feedback": "멋진 주인공이야! 🐿️",          "next_question": STAGE_QUESTIONS["승"]["question"]},
-            {"npc": "도토리", "feedback": "이야기가 시작됐어! ✨",           "next_question": STAGE_QUESTIONS["승"]["question"]},
-        ],
-        "keywords_pool": [
-            ["보물 지도를 발견했어요", "무서운 괴물이 나타났어요", "새로운 친구를 만났어요", "마법 문을 발견했어요"],
-            ["신기한 편지가 왔어요", "하늘에서 뭔가 떨어졌어요", "꿈속에서 목소리가 들렸어요", "이상한 가게를 발견했어요"],
-        ],
-    },
-    "승": {
-        "responses": [
-            {"npc": "글벌레", "feedback": "이야기가 신나게 펼쳐지네! 🚀", "next_question": STAGE_QUESTIONS["전"]["question"]},
-            {"npc": "글벌레", "feedback": "흥미진진한 전개야! 💡",          "next_question": STAGE_QUESTIONS["전"]["question"]},
-            {"npc": "글벌레", "feedback": "이야기가 살아 숨 쉬는 것 같아! 🌿", "next_question": STAGE_QUESTIONS["전"]["question"]},
-        ],
-        "keywords_pool": [
-            ["친구가 위험에 빠졌어요", "보물이 사라졌어요", "길을 잃어버렸어요", "마법이 풀려버렸어요"],
-            ["나쁜 마법사가 나타났어요", "갑자기 폭풍이 몰아쳤어요", "중요한 것을 잃어버렸어요", "배신을 당했어요"],
-        ],
-    },
-    "전": {
-        "responses": [
-            {"npc": "도토리", "feedback": "위기가 실감 나게 느껴져! ⚡", "next_question": STAGE_QUESTIONS["결"]["question"]},
-            {"npc": "도토리", "feedback": "긴장감 최고야! 🐿️",            "next_question": STAGE_QUESTIONS["결"]["question"]},
-            {"npc": "도토리", "feedback": "어떻게 해결될지 궁금해! ✨",    "next_question": STAGE_QUESTIONS["결"]["question"]},
-        ],
-        "keywords_pool": [
-            ["모두 힘을 합쳐 해결했어요", "마법의 힘으로 이겼어요", "용기를 내서 해냈어요", "친구의 도움으로 성공했어요"],
-            ["포기하지 않고 계속 도전했어요", "숨겨진 능력을 발견했어요", "진심이 통했어요", "작은 단서를 찾았어요"],
-        ],
-    },
-    "결": {
-        "responses": [
-            {"npc": "루나", "feedback": "결말까지 완벽해! 👏",        "full_review": "처음부터 끝까지 정말 대단해!",         "badge": "이야기 요정"},
-            {"npc": "루나", "feedback": "감동적인 마무리야! 🌟",      "full_review": "생각과 감정이 잘 담긴 훌륭한 글이야!", "badge": "글짓기 챔피언"},
-            {"npc": "루나", "feedback": "해피엔딩이 따뜻해! 💙",      "full_review": "상상력이 넘치는 멋진 작품이야!",       "badge": "창작 마법사"},
-            {"npc": "루나", "feedback": "깔끔하게 마무리했어! ✨",     "full_review": "꾸준히 써낸 네 노력이 빛나는 글이야!", "badge": "도전 영웅"},
-        ],
-    },
+    "기": {"question": "주인공은 누구인가요? 🐰"},
+    "승": {"question": "어떤 신나는 일이 생겼나요? 🚀"},
+    "전": {"question": "갑자기 어떤 위기가 찾아왔나요? ⚡"},
+    "결": {"question": "어떻게 문제를 해결했나요? 🌈"},
 }
 
 
 def get_stage_response(stage, user_input=None):
-    """미리 정의된 data 풀에서 해당 단계의 응답을 랜덤 선택"""
-    data = STAGE_DATA.get(stage, {})
-    responses  = data.get("responses", [{}])
-    kw_pool    = data.get("keywords_pool", [[]])
+    """외부 JSON 파일에서 해당 단계의 NPC 응답과 키워드를 랜덤 선택"""
+    responses = NPC_RESPONSES.get(stage, [{}])
+    kw_pool   = KEYWORDS_POOL.get(stage, [[]])
     resp = random.choice(responses).copy()
-    resp["keywords"] = random.choice(kw_pool)
+    resp["keywords"] = random.choice(kw_pool) if kw_pool else []
     return resp
 
 
